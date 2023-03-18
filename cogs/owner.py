@@ -212,6 +212,8 @@ class CommandsOwner(commands.Cog):
 
     async def recover_starboard_db(self, itx: Interaction):
         """If all goes to shit, recover the ids from starboard posts."""
+        await itx.response.defer(ephemeral=True)
+
         ids_added = 0
 
         for guild_settings in self.bot.db["settings"].values():
@@ -230,7 +232,7 @@ class CommandsOwner(commands.Cog):
                     og_link = embed.author.url
                     ids = og_link.split("#")[0].split("/")[-2:]
 
-                    self.bot.db["starboard"][ids[1]] = m.id
+                    self.bot.db["starboard"][int(ids[1])] = m.id
                     ids_added += 1
 
         await itx.response.send_message(ephemeral=True, content=
