@@ -225,7 +225,7 @@ class CommandsOwner(commands.Cog):
                 if m.author != self.bot.user or not m.embeds:
                     continue
 
-                with suppress(ValueError, IndexError):
+                with suppress(ValueError, IndexError, AttributeError):
                     embed = m.embeds[0]
                     og_link = embed.author.url
                     ids = og_link.split("#")[0].split("/")[-2:]
