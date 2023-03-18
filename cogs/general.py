@@ -3,9 +3,6 @@ from contextlib import suppress
 from typing import Union
 from io import BytesIO
 import random
-import zipfile
-import time
-import os
 
 from PIL import Image, ImageColor
 
@@ -196,47 +193,6 @@ class CommandsGeneral(commands.Cog):
 
         await itx.response.send_message(
             embed=embed, file=file, ephemeral=private)
-
-    @app_commands.command()
-    async def source(self, itx: Interaction):
-        """Toast's bot source code, for you to snoop around in."""
-        # source_used is to avoid creating zips constantly.
-        # This gets reset when using the restart command
-        if not hasattr(self.bot, "source_used"):
-            self.bot.source_used = True
-            cwd = os.getcwd()
-            excluded_folders = "__pycache__", ".vscode", "logs"
-            excluded_files = (
-                "token_.py", "source.zip", "Lavalink.jar",
-                "db.p", "application.yml")
-
-            with zipfile.ZipFile("source.zip", "w") as zf:
-                for root, dirs, files in os.walk(cwd):
-                    if any([folder in root for folder in excluded_folders]):
-                        continue
-
-                    if (path := os.path.relpath(root, cwd)) != ".":
-                        zf.write(path)
-
-                    for file in files:
-                        if file not in excluded_files:
-                            path = os.path.join(root, file)
-                            zf.write(os.path.relpath(path, cwd))
-
-        filename = time.strftime("%Y-%m-%d Toast.zip")
-        lines = 0
-
-        for root, dirs, files in os.walk("."):
-            for file in files:
-                if file.endswith(".py"):
-                    with open(os.path.join(root, file)) as f:
-                        lines += len(f.readlines())
-
-        await itx.response.send_message(
-            f"Toast uses Python, discord.py {discord.__version__}. "
-            f"{self.bot.readable_number(lines)} lines of code",
-            file=discord.File("source.zip", filename=filename),
-            ephemeral=True)
 
 
 async def setup(bot):
