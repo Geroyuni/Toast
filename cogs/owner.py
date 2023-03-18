@@ -1,4 +1,4 @@
-from contextlib import redirect_stdout
+from contextlib import redirect_stdout, suppress
 from io import StringIO
 import traceback
 import textwrap
@@ -118,7 +118,8 @@ class CommandsOwner(commands.Cog):
         log: str = None,
         embed: str = None,
         avatar: discord.Attachment = None,
-        invite: bool = False
+        invite: bool = False,
+        recover_starboard_db: bool = False
     ):
         """Bot owner command 🤔. I can't hide this, blame Discord"""
         if say:
@@ -139,12 +140,16 @@ class CommandsOwner(commands.Cog):
             return await self.avatar(itx, avatar)
         if invite:
             return await self.invite(itx)
+        if recover_starboard_db:
+            return await self.recover_starboard_db(itx)
 
     async def say(self, itx: Interaction, words: str):
+        """Make toast speak."""
         await itx.channel.send(words)
         await itx.response.send_message("sent", ephemeral=True)
 
     async def restart(self, itx: Interaction, cog: str):
+        """Restart specific cog of the bot or all of it."""
         if cog in ("music", "full"):
             if not await self.proceed_after_closing_players(itx):
                 return
@@ -156,9 +161,6 @@ class CommandsOwner(commands.Cog):
             self.bot.save_db()
             os.execl(sys.executable, sys.executable, *sys.argv)
 
-        if hasattr(self.bot, "source_used"):
-            del self.bot.source_used
-
         try:
             await self.bot.reload_extension(f"cogs.{cog}")
             await itx.followup.send(f"Reloaded 'cogs.{cog}'", ephemeral=True)
@@ -166,6 +168,7 @@ class CommandsOwner(commands.Cog):
             await itx.followup.send(e)
 
     async def sync(self, itx: Interaction, guild_id: str):
+        """Sync changes that should be reflected on the Discord UI."""
         if guild_id == "global":
             await self.bot.tree.sync()
         else:
@@ -174,6 +177,7 @@ class CommandsOwner(commands.Cog):
         await itx.response.send_message("synced.", ephemeral=True)
 
     async def shutdown(self, itx: Interaction):
+        """Shutdown the bot properly."""
         if not await self.proceed_after_closing_players(itx):
             return
 
@@ -181,9 +185,11 @@ class CommandsOwner(commands.Cog):
         await self.bot.close()
 
     async def settings(self, itx: Interaction, guild_id: str):
+        """Summon settings for a server the bot is in."""
         await CommandsSettings.summon_settings(itx, int(guild_id))
 
     async def log(self, itx: Interaction, guild_id: str):
+        """Summon logs for a server the bot is in."""
         await CommandsServers.summon_log(itx, int(guild_id))
 
     async def embed(self, itx: Interaction, message_url: str):
@@ -195,12 +201,40 @@ class CommandsOwner(commands.Cog):
             embed=message.embeds[0], view=view, ephemeral=True)
 
     async def avatar(self, itx: Interaction, image: discord.Attachment):
+        """Change the bot's avatar."""
         await self.bot.user.edit(image.read())
         await itx.response.send_message("changed", ephemeral=True)
 
     async def invite(self, itx: Interaction):
+        """Send a link to invite the bot to a server."""
         await itx.response.send_message(ephemeral=True, content=
             f"<{discord.utils.oauth_url(self.bot.user.id)}>")
+
+    async def recover_starboard_db(self, itx: Interaction):
+        """If all goes to shit, recover the ids from starboard posts."""
+        ids_added = 0
+
+        for guild_settings in self.bot.settings.values():
+            starboard = self.bot.get_channel(
+                guild_settings.get("starboard_channel"))
+
+            if not starboard:
+                continue
+
+            async for m in starboard.history(limit=None):
+                if m.author != self.bot.user or not m.embeds:
+                    continue
+
+                with suppress(ValueError, IndexError):
+                    embed = m.embeds[0]
+                    og_link = embed.author.url
+                    ids = og_link.split("#")[0].split("/")[-2:]
+
+                    self.bot.db["starboard"][ids[1]] = m.id
+                    ids_added += 1
+
+        await itx.response.send_message(ephemeral=True, content=
+            f"{ids_added} message IDs added into db")
 
     @owner.autocomplete("restart")
     async def restart_autocomplete(self, itx: Interaction, current: str):
