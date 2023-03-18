@@ -214,7 +214,7 @@ class CommandsOwner(commands.Cog):
         """If all goes to shit, recover the ids from starboard posts."""
         ids_added = 0
 
-        for guild_settings in self.bot.settings.values():
+        for guild_settings in self.bot.db.settings.values():
             starboard = self.bot.get_channel(
                 guild_settings.get("starboard_channel"))
 
