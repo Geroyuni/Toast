@@ -1,5 +1,4 @@
 from datetime import datetime
-from email import message
 from urllib.parse import urlparse
 from contextlib import suppress
 from io import BytesIO
