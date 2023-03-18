@@ -235,8 +235,7 @@ class CommandsOwner(commands.Cog):
                     self.bot.db["starboard"][int(ids[1])] = m.id
                     ids_added += 1
 
-        await itx.response.send_message(ephemeral=True, content=
-            f"{ids_added} message IDs added into db")
+        await itx.followup.send(f"{ids_added} message IDs added into db")
 
     @owner.autocomplete("restart")
     async def restart_autocomplete(self, itx: Interaction, current: str):
