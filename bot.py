@@ -51,7 +51,7 @@ class ToastBot(commands.Bot):
             with open("db.p", "rb") as file:
                 db = pickle.load(file)
         except FileNotFoundError:
-            db = {"settings": {}, "starboard": {}}
+            db = {"settings": {}, "starboard": {}, "logs": {}}
 
         return db
 
