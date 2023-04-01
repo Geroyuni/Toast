@@ -431,9 +431,9 @@ class Music(commands.Cog):
 
         try:
             wavelink.NodePool.get_node()
-        except wavelink.ZeroConnectedNodes:
+        except wavelink.InvalidNode:
             await wavelink.NodePool.create_node(
-                bot=self.bot, host="0.0.0.0", port=2333,
+                client=self.bot, uri="http://localhost:2333",
                 password="youshallnotpass")
 
     @app_commands.check(music_check)
