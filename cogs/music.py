@@ -465,15 +465,15 @@ class Music(commands.Cog):
         else:
             fetch_query = f"ytsearch:{query}"
 
+        node = wavelink.NodePool.get_node()
+
         try:
-            tracks = await wavelink.NodePool.get_tracks(
-                fetch_query, cls=wavelink.GenericTrack)
+            tracks = node.get_tracks(wavelink.GenericTrack, fetch_query)
         except (wavelink.WavelinkException, ValueError):
             # TODO: wavelink will replace ValueError later
             try:
-                tracks = await wavelink.NodePool.get_playlist(
-                    fetch_query, cls=wavelink.GenericTrack)
-            except wavelink.WavelinkException:
+                tracks = node.get_playlist(wavelink.GenericTrack, fetch_query)
+            except (wavelink.WavelinkException, ValueError):
                 tracks = None
 
         # Do something with the results of get_tracks
