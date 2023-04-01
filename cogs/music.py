@@ -736,10 +736,12 @@ class SeekModal(discord.ui.Modal, title="Seek to a specific timestamp"):
         split_times = zip([1, 60, 3600], time.split(":")[::-1])
         seek_to = sum(unit * int(times) for unit, times in split_times)
 
+        position_seconds = int(self.player.position / 1000)
+
         if relative_sign == "+":
-            seek_to = self.player.position + seek_to
+            seek_to = position_seconds + seek_to
         elif relative_sign == "-":
-            seek_to = max(0, self.player.position - seek_to)
+            seek_to = max(0, position_seconds - seek_to)
 
         await self.player.seek(seek_to * 1000)  # seek uses ms
         self.player.current_track.message = msg
