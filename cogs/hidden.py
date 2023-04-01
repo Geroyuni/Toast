@@ -28,7 +28,7 @@ class CommandsHidden(commands.Cog):
         try:
             playlist = await node.get_playlist(
                 wavelink.YouTubePlaylist, playlist_link)
-        except wavelink.LavalinkException:
+        except wavelink.WavelinkException:
             await itx.response.send_message(ephemeral=True, content=
                 "this isn't a playlist link or I can't access it")
             return
