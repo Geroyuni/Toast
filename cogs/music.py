@@ -468,7 +468,8 @@ class Music(commands.Cog):
         try:
             tracks = await wavelink.NodePool.get_tracks(
                 fetch_query, cls=wavelink.GenericTrack)
-        except wavelink.WavelinkException:
+        except (wavelink.WavelinkException, ValueError):
+            # TODO: wavelink will replace ValueError later
             try:
                 tracks = await wavelink.NodePool.get_playlist(
                     fetch_query, cls=wavelink.GenericTrack)
