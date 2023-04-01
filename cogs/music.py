@@ -53,7 +53,7 @@ def cut(string, length):
     return newstr
 
 
-class Track(wavelink.Track):
+class Track(wavelink.GenericTrack):
     """Wavelink Track object with additional attributes."""
 
     def __init__(self, track, requester=None):
@@ -469,7 +469,7 @@ class Music(commands.Cog):
         node = wavelink.NodePool.get_node()
 
         try:
-            tracks = await node.get_tracks(wavelink.Track, fetch_query)
+            tracks = await node.get_tracks(wavelink.GenericTrack, fetch_query)
         except wavelink.LavalinkException:
             try:
                 tracks = await node.get_playlist(
