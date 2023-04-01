@@ -467,12 +467,13 @@ class Music(commands.Cog):
 
         node = wavelink.NodePool.get_node()
 
+        # TODO: wavelink will replace ValueError later
         try:
-            tracks = node.get_tracks(wavelink.GenericTrack, fetch_query)
+            tracks = await node.get_tracks(wavelink.GenericTrack, fetch_query)
         except (wavelink.WavelinkException, ValueError):
-            # TODO: wavelink will replace ValueError later
             try:
-                tracks = node.get_playlist(wavelink.GenericTrack, fetch_query)
+                tracks = await node.get_playlist(
+                    wavelink.GenericTrack, fetch_query)
             except (wavelink.WavelinkException, ValueError):
                 tracks = None
 
