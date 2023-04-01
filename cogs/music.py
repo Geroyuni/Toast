@@ -432,9 +432,9 @@ class Music(commands.Cog):
         try:
             wavelink.NodePool.get_node()
         except wavelink.InvalidNode:
-            await wavelink.NodePool.create_node(
-                client=self.bot, uri="http://localhost:2333",
-                password="youshallnotpass")
+            node = wavelink.Node(
+                uri="http://localhost:2333", password="youshallnotpass")
+            await wavelink.NodePool.connect(client=self.bot, nodes=[node])
 
     @app_commands.check(music_check)
     @app_commands.guild_only()
