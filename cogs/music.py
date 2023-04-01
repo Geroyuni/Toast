@@ -72,7 +72,7 @@ class Track(wavelink.GenericTrack):
         if self.is_stream:
             self.length_fmt = "Live"
         else:
-            self.length_fmt = fmt_time(self.length)
+            self.length_fmt = fmt_time(self.length / 60)
 
     def formatted_name(self, length: int):
         """Return cut name with link and tooltip."""
@@ -154,7 +154,7 @@ class Player(wavelink.Player):
             npsymbol = f"{self.current_track.queue_sign}."
 
             if self.current_track.queue_sign == ".":
-                position = self.current_track.length
+                position = self.current_track.length / 60
 
         tracks = ""
 
