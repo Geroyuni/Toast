@@ -180,7 +180,7 @@ class Player(wavelink.Player):
 
         avatar = self.current_track.requester.display_avatar.url
 
-        embed = discord.Embed(description=tracks, color=0x2f3136)
+        embed = discord.Embed(description=tracks, color=0x2b2d31)
         embed.set_thumbnail(url=self.current_track.thumb)
         embed.set_footer(text=time, icon_url=avatar)
         return embed
@@ -282,7 +282,7 @@ class Player(wavelink.Player):
 
         embed = discord.Embed(
             description=f"Closing the music session {reason}",
-            color=0x2f3136)
+            color=0x2b2d31)
 
         time = datetime.datetime.now() - self.started_session
 

@@ -302,7 +302,7 @@ class CommandsOwner(commands.Cog):
             await ctx.isend("too long; printing to console")
             ctx.bot.print("\n".join(outputs), color="BLUE")
         elif len(msg) > 2000:
-            embed = discord.Embed(description=msg, color=0x2f3136)
+            embed = discord.Embed(description=msg, color=0x2b2d31)
             await ctx.isend(embed=embed)
         else:
             await ctx.isend(msg or "`empty result`")
