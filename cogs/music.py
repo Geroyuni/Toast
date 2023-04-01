@@ -467,11 +467,11 @@ class Music(commands.Cog):
 
         try:
             tracks = await wavelink.NodePool.get_tracks(
-                wavelink.GenericTrack, fetch_query)
+                fetch_query, cls=wavelink.GenericTrack)
         except wavelink.WavelinkException:
             try:
                 tracks = await wavelink.NodePool.get_playlist(
-                    wavelink.YouTubePlaylist, fetch_query)
+                    fetch_query, cls=wavelink.GenericTrack)
             except wavelink.WavelinkException:
                 tracks = None
 
