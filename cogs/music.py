@@ -465,14 +465,12 @@ class Music(commands.Cog):
         else:
             fetch_query = f"ytsearch:{query}"
 
-        # Attempt to get tracks or playlists
-        node = wavelink.NodePool.get_node()
-
         try:
-            tracks = await node.get_tracks(wavelink.GenericTrack, fetch_query)
+            tracks = await wavelink.NodePool.get_tracks(
+                wavelink.GenericTrack, fetch_query)
         except wavelink.WavelinkException:
             try:
-                tracks = await node.get_playlist(
+                tracks = await wavelink.NodePool.get_playlist(
                     wavelink.YouTubePlaylist, fetch_query)
             except wavelink.WavelinkException:
                 tracks = None
