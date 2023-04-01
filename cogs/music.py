@@ -550,19 +550,19 @@ class Music(commands.Cog):
         await itx.guild.voice_client.update_queue(new_message=True)
 
     @commands.Cog.listener()
-    async def on_wavelink_track_end(
-        self, voice_client: Player, track: Track, reason):
-        if reason == "LOAD_FAILED":
+    async def on_wavelink_track_end(self, payload: wavelink.TrackEventPayload):
+        if payload.reason == "LOAD_FAILED":
             return  # Handled by wavelink_track_exception
 
-        await voice_client.do_next()
+        await payload.player.do_next()
 
     @commands.Cog.listener()
     async def on_wavelink_track_exception(
-        self, voice_client: Player, track: Track, error):
-        voice_client.current_track.queue_sign = "!"
-        voice_client.current_track.message = error
-        await voice_client.do_next()
+        self, payload: wavelink.TrackEventPayload):
+
+        payload.player.current_track.queue_sign = "!"
+        payload.player.current_track.message = payload.reason
+        await payload.player.do_next()
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
