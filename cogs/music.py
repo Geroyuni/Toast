@@ -57,7 +57,7 @@ class Track(wavelink.GenericTrack):
     """Wavelink Track object with additional attributes."""
 
     def __init__(self, track, requester=None):
-        super().__init__(track.id, track.info)
+        super().__init__(track.data)
 
         self.queue_sign = "."
         self.message = ""
