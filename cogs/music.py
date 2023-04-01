@@ -69,7 +69,7 @@ class Track(wavelink.GenericTrack):
         else:
             self.thumb = "https://files.catbox.moe/bqyvm5.png"
 
-        if self.is_stream():
+        if self.is_stream:
             self.length_fmt = "Live"
         else:
             self.length_fmt = fmt_time(self.length)
@@ -173,7 +173,7 @@ class Player(wavelink.Player):
 
             tracks += fmt
 
-        if self.current_track.is_stream():
+        if self.current_track.is_stream:
             time = "Live 🔴"
         else:
             time = f"{fmt_time(position)} / {self.current_track.length_fmt}"
@@ -270,7 +270,7 @@ class Player(wavelink.Player):
                 continue
 
             if self.is_playing() and not (
-                self.is_paused() or self.current_track.is_stream()):
+                self.is_paused() or self.current_track.is_stream):
                 await self.update_queue()
 
     async def send_disconnect_log(self, reason):
@@ -651,7 +651,7 @@ class Pause(discord.ui.Button):
 
 class Seek(discord.ui.Button):
     def __init__(self, player):
-        disabled = not player.is_playing() or player.current_track.is_stream()
+        disabled = not player.is_playing() or player.current_track.is_stream
 
         super().__init__(
             label="Seek",
