@@ -144,7 +144,7 @@ class Player(wavelink.Player):
     @property
     def queue_embed(self):
         """Return queue embed."""
-        position = self.position
+        position = self.position / 1000
 
         if self.is_paused():
             npsymbol = "||"
