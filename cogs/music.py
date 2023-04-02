@@ -142,6 +142,11 @@ class Player(wavelink.Player):
         return votes >= required
 
     @property
+    def position(self):
+        # TODO: Remove when this is fixed in wavelink
+        return min(self.last_position, self.current.duration)
+
+    @property
     def queue_embed(self):
         """Return queue embed."""
         position = self.position / 1000
@@ -552,16 +557,9 @@ class Music(commands.Cog):
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, payload: wavelink.TrackEventPayload):
         if payload.reason == "LOAD_FAILED":
-            return  # Handled by wavelink_track_exception
+            payload.player.current_track.queue_sign = "!"
+            payload.player.current_track.message = payload.reason
 
-        await payload.player.do_next()
-
-    @commands.Cog.listener()
-    async def on_wavelink_track_exception(
-        self, payload: wavelink.TrackEventPayload):
-
-        payload.player.current_track.queue_sign = "!"
-        payload.player.current_track.message = payload.reason
         await payload.player.do_next()
 
     @commands.Cog.listener()
