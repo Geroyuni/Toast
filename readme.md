@@ -1,4 +1,4 @@
-# Toast by Geroyuni#1461
+# Toast
 Toast is a Discord bot for my own stuff; My instance is for servers I personally like.
 You can use the code for whatever, though.
 
