@@ -22,7 +22,7 @@ class CommandsServers(commands.Cog):
             "deleted by anyone with permission. Cross check with the "
             "Discord audit log where needed.\n\n")
 
-        for event in itx.client.db["logs"][guild_id]:
+        for event in reversed(itx.client.db["logs"][guild_id]):
             event = "> " + event.replace("\n", "\n> ")
 
             if len(events + event) < 4096:
