@@ -7,6 +7,7 @@ from discord import app_commands, Interaction
 from discord.ext import commands
 import wavelink
 import discord
+import aiohttp
 
 
 def fmt_time(seconds):
@@ -62,17 +63,31 @@ class Track(wavelink.GenericTrack):
         self.queue_sign = "."
         self.message = ""
         self.requester = requester
-
-        if "youtube" in self.uri or "youtu.be" in self.uri:
-            self.thumb = (
-                f"https://i.ytimg.com/vi/{self.identifier}/hqdefault.jpg")
-        else:
-            self.thumb = "https://files.catbox.moe/bqyvm5.png"
+        self._thumb = None
 
         if self.is_stream:
             self.length_fmt = "Live"
         else:
             self.length_fmt = fmt_time(self.length / 1000)
+
+    async def get_thumbnail(self):
+        if self._thumb:
+            return self._thumb
+
+        if not ("youtube" in self.uri or "youtu.be" in self.uri):
+            self._thumb = "https://files.catbox.moe/bqyvm5.png"
+            return self._thumb
+
+        thumbnail_format = f"https://i.ytimg.com/vi/{self.identifier}/%s.jpg"
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(thumbnail_format % "maxresdefault") as resp:
+                if resp.status == 404:
+                    self._thumb = thumbnail_format % "hqdefault"
+                else:
+                    self._thumb = thumbnail_format % "maxresdefault"
+
+        return self._thumb
 
     def formatted_name(self, length: int):
         """Return cut name with link and tooltip."""
@@ -146,8 +161,7 @@ class Player(wavelink.Player):
         # TODO: Remove when this is fixed in wavelink
         return min(self.last_position, self.current.duration)
 
-    @property
-    def queue_embed(self):
+    async def get_queue_embed(self):
         """Return queue embed."""
         position = self.position / 1000
 
@@ -186,7 +200,7 @@ class Player(wavelink.Player):
         avatar = self.current_track.requester.display_avatar.url
 
         embed = discord.Embed(description=tracks, color=0x2b2d31)
-        embed.set_thumbnail(url=self.current_track.thumb)
+        embed.set_thumbnail(url=await self.current_track.get_thumbnail())
         embed.set_footer(text=time, icon_url=avatar)
         return embed
 
@@ -207,7 +221,8 @@ class Player(wavelink.Player):
 
                 if self.queue_msg.id == message.id:
                     await self.queue_msg.edit(
-                        embed=self.queue_embed, view=QueueButtons(self))
+                        embed=await self.get_queue_embed(),
+                        view=QueueButtons(self))
 
                     self.updated_queue_at = datetime.datetime.now()
                     return
@@ -215,7 +230,7 @@ class Player(wavelink.Player):
                 await self.queue_msg.delete()
 
             self.queue_msg = await self.channel.send(
-                embed=self.queue_embed, view=QueueButtons(self))
+                embed=await self.get_queue_embed(), view=QueueButtons(self))
 
             self.updated_queue_at = datetime.datetime.now()
             return
@@ -226,7 +241,7 @@ class Player(wavelink.Player):
                     vote.clear()
 
             await self.queue_msg.edit(
-                embed=self.queue_embed, view=QueueButtons(self))
+                embed=await self.get_queue_embed(), view=QueueButtons(self))
 
             self.updated_queue_at = datetime.datetime.now()
 
