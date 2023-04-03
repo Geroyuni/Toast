@@ -1,3 +1,5 @@
 .DS_Store
-token_.py
+__pycache__
 lavalink
+token_.py
+db.p
