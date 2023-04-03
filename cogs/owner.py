@@ -202,7 +202,7 @@ class CommandsOwner(commands.Cog):
 
     async def avatar(self, itx: Interaction, image: discord.Attachment):
         """Change the bot's avatar."""
-        await self.bot.user.edit(image.read())
+        await self.bot.user.edit(avatar=await image.read())
         await itx.response.send_message("changed", ephemeral=True)
 
     async def invite(self, itx: Interaction):
