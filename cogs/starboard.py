@@ -149,7 +149,7 @@ class Starboard(commands.Cog):
                 author = utils.escape_markdown(resolved.author.name)
                 content = utils.remove_markdown(resolved.content)
                 content = content.replace("\n", " ")
-                reply = self.bot.cut(f"**{author}** {content}", 58)
+                reply = self.bot.cut(f"**{author}** {content}", 160)
 
                 if resolved.attachments or resolved.embeds:
                     if not content:
