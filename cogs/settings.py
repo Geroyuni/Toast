@@ -110,10 +110,19 @@ class EditableRolesSelect(discord.ui.Select):
 
         setting = view.settings[self.custom_id]
 
+        roles = []
+
         for role in reversed(view.guild.roles):
             if role.name == "@everyone":
                 continue
 
+            if role.name.startswith("#") and len(role.name) == 7:
+                if view.settings["color_command"]:
+                    continue
+
+            roles.append(role)
+
+        for role in roles[:20]:
             self.add_option(
                 label=f"@{role.name}",
                 value=str(role.id),
@@ -132,7 +141,7 @@ class StarboardChannelSelect(discord.ui.Select):
 
         setting = view.settings[self.custom_id]
 
-        for channel in view.guild.text_channels:
+        for channel in view.guild.text_channels[:20]:
             self.add_option(
                 label=f"#{channel.name}", value=str(channel.id),
                 default=channel.id == setting)
@@ -170,7 +179,7 @@ class DynamicVoicechannelSelect(discord.ui.Select):
             label=f"Use non-category part of the server", value="no_category",
             default="no_category" == setting)
 
-        for channel in view.guild.categories:
+        for channel in view.guild.categories[:19]:
             self.add_option(
                 label=f"{channel.name}", value=str(channel.id),
                 default=channel.id == setting)
