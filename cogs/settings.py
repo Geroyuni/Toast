@@ -105,8 +105,7 @@ class EditableRolesSelect(discord.ui.Select):
         super().__init__(
             placeholder="No roles selected (/roles disabled)",
             custom_id="editable_roles",
-            min_values=0,
-            max_values=len(view.guild.roles) - 1)
+            min_values=0)
 
         setting = view.settings[self.custom_id]
 
@@ -122,11 +121,13 @@ class EditableRolesSelect(discord.ui.Select):
 
             roles.append(role)
 
-        for role in roles[:20]:
+        for role in roles[:25]:
             self.add_option(
                 label=f"@{role.name}",
                 value=str(role.id),
                 default=role.id in setting)
+
+        self.max_values = len(self.options)
 
     async def callback(self, itx: Interaction):
         self.view.settings[self.custom_id] = [int(i) for i in self.values]
@@ -141,7 +142,7 @@ class StarboardChannelSelect(discord.ui.Select):
 
         setting = view.settings[self.custom_id]
 
-        for channel in view.guild.text_channels[:20]:
+        for channel in view.guild.text_channels[:25]:
             self.add_option(
                 label=f"#{channel.name}", value=str(channel.id),
                 default=channel.id == setting)
@@ -179,7 +180,7 @@ class DynamicVoicechannelSelect(discord.ui.Select):
             label=f"Use non-category part of the server", value="no_category",
             default="no_category" == setting)
 
-        for channel in view.guild.categories[:19]:
+        for channel in view.guild.categories[:24]:
             self.add_option(
                 label=f"{channel.name}", value=str(channel.id),
                 default=channel.id == setting)
