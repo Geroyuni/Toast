@@ -87,12 +87,18 @@ class Starboard(commands.Cog):
         return all((
             perms.manage_messages, perms.read_messages, perms.send_messages))
 
+    @staticmethod
+    def get_filesize_limit(guild):
+        """Return new filesize limit, TODO: Remove when discordpy updates."""
+        limit = {0: 25000000, 1: 25000000, 2: 50000000, 3: 100000000}
+        return limit[guild.premium_tier]
+
     async def create_message(self, message, stars, starmin, dest):
         """Create a message in the starboard."""
         desc = []
         files = []
         embed = Embed()
-        filesize_limit = message.guild.filesize_limit
+        filesize_limit = self.get_filesize_limit(message.guild)
         image_exts = ("png", "jpg", "jpeg", "gif", "webp")
         video_exts = ("mp4", "mp3", "mov")
 
