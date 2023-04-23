@@ -78,6 +78,10 @@ class CommandsHidden(commands.Cog):
 
             async for message in thread.history(limit=None):
                 for line in message.content.split("\n"):
+                    # Remove header formatting
+                    if line.startswith(("# ", "## ", "### ")):
+                        line = line.split(" ", 1)[1]
+
                     should_add_rating = (
                         line
                         and line[0] in "🔴🟠🟡⚪🔵🟢🟣⚫"
