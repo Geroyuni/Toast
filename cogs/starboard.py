@@ -35,7 +35,7 @@ class Starboard(commands.Cog):
         message = await self.bot.fetch_message(src.channel_id, src.message_id)
 
         if not self.check_permissions(message, is_starboard=True):
-            self.bot.print("Starboard perms fail {message.guild.name}")
+            self.bot.print(f"Starboard perms fail {message.guild.name}")
             return
 
         msgs = await self.fetch_both_messages(message, starboard)
@@ -92,7 +92,8 @@ class Starboard(commands.Cog):
         desc = []
         files = []
         embed = Embed()
-        filesize_limit = message.guild.filesize_limit
+        # TODO: Hardcoded new file size limit, revert when changed by discord.py
+        filesize_limit = max(26214400, message.guild.filesize_limit)
         image_exts = ("png", "jpg", "jpeg", "gif", "webp")
         video_exts = ("mp4", "mp3", "mov")
 
