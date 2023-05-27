@@ -260,6 +260,14 @@ class Player(wavelink.Player):
             while not self.tracks:
                 await asyncio.sleep(0.2)
 
+                members = self.channel.members
+                toast_in_chat = self.guild.me in members
+
+                if not toast_in_chat:
+                    await self.send_disconnect_log("I got kicked out lol")
+                    await self.disconnect()
+                    return
+
                 if self.pending_searches:
                     time = datetime.datetime.now()
                     continue
@@ -585,14 +593,8 @@ class Music(commands.Cog):
         if not voice_client:
             return
 
-        members = voice_client.channel.members
-        toast_in_chat = voice_client.guild.me in members
-
-        if toast_in_chat and len(voice_client.channel.members) == 1:
+        if len(voice_client.channel.members) == 1:
             await voice_client.send_disconnect_log("because everyone left.")
-            await voice_client.disconnect()
-        elif not toast_in_chat:
-            await voice_client.send_disconnect_log("I got kicked out lol")
             await voice_client.disconnect()
 
 
