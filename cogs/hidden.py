@@ -23,18 +23,20 @@ class CommandsHidden(commands.Cog):
         :param playlist_link: The link to the playlist
         :param public: Show the result publicly (false by default)
         """
+        await itx.response.defer(ephemeral=True)
+
         node = wavelink.NodePool.get_node()
 
         try:
             playlist = await node.get_playlist(
                 wavelink.YouTubePlaylist, playlist_link)
         except wavelink.WavelinkException:
-            await itx.response.send_message(ephemeral=True, content=
+            await itx.followup.send(
                 "this isn't a playlist link or I can't access it")
             return
 
         if not playlist:
-            await itx.response.send_message(ephemeral=True, content=
+            await itx.followup.send(
                 "this isn't a playlist link or I can't access it")
             return
 
@@ -45,7 +47,7 @@ class CommandsHidden(commands.Cog):
         if len(full_output) >= 1992:
             full_output = full_output[:1990] + ".."
 
-        await itx.response.send_message(
+        await itx.followup.send(
             f"```{html.unescape(full_output)}```", ephemeral=not public)
 
     @app_commands.command()
