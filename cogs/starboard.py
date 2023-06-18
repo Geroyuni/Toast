@@ -92,8 +92,7 @@ class Starboard(commands.Cog):
         desc = []
         files = []
         embed = Embed()
-        # TODO: Hardcoded new file size limit, revert when changed by discord.py
-        filesize_limit = max(26214400, message.guild.filesize_limit)
+        filesize_limit = message.guild.filesize_limit
         image_exts = ("png", "jpg", "jpeg", "gif", "webp")
         video_exts = ("mp4", "mp3", "mov")
 
