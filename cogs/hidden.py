@@ -71,6 +71,9 @@ class CommandsHidden(commands.Cog):
         total = {
             "🔴": 0, "🟠": 0, "🟡": 0, "⚪": 0,
             "🔵": 0, "🟢": 0, "🟣": 0, "⚫": 0}
+        name_to_circle = {
+            "red": "🔴", "orange": "🟠", "yellow": "🟡", "white": "⚪",
+            "blue": "🔵", "green": "🟢", "purple": "🟣", "black": "⚫"}
 
         content = ["\😔\🔵\🟢\🟣\⚫"]
         sort = lambda x: x[0].casefold()
@@ -84,13 +87,20 @@ class CommandsHidden(commands.Cog):
                     if line.startswith(("# ", "## ", "### ")):
                         line = line.split(" ", 1)[1]
 
-                    should_add_rating = (
-                        line
-                        and line[0] in "🔴🟠🟡⚪🔵🟢🟣⚫"
-                        and "**" not in line)
+                    should_not_ignore_line = line and "**" not in line
 
-                    if should_add_rating:
-                        threads[thread.name][line[0]] += 1
+                    if should_not_ignore_line:
+                        is_regular_circle = line[0] in "🔴🟠🟡⚪🔵🟢🟣⚫"
+                        is_custom_circle = (
+                            line.startswith("<:")
+                            and "_circle" in line.split(" ")[0])
+
+                        if is_regular_circle:
+                            threads[thread.name][line[0]] += 1
+                        if is_custom_circle:
+                            color_name = line.split("_")[0][8:]
+                            circle = name_to_circle[color_name]
+                            threads[thread.name][circle] += 1
 
         def get_numbers(ratings):
             bad_number = str(sum(tuple(ratings.values())[0:3])).zfill(2)
