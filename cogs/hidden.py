@@ -40,9 +40,11 @@ class CommandsHidden(commands.Cog):
                 "this isn't a playlist link or I can't access it")
             return
 
-        playlist_name = f"⚪ {playlist.name.removeprefix('Album - ')}"
+
+        playlist_name = playlist.name.removeprefix('Album - ')
+        playlist_name_formatted = f"⚪ [{playlist_name}](<{playlist_link}>)"
         track_names = "\n".join([f"⬜ {t.title}" for t in playlist.tracks])
-        full_output = f"{playlist_name}\n\n{track_names}"
+        full_output = f"{playlist_name_formatted}\n\n{track_names}"
 
         if len(full_output) >= 1992:
             full_output = full_output[:1990] + ".."
