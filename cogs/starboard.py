@@ -243,16 +243,20 @@ class Starboard(commands.Cog):
 
     def edit_embed_attachments(self, embed):
         """Ensure the attachments added for the embed stay hidden."""
+        def get_extension(url):
+            og_name = urlparse(url).path.split("/")[-1]
+            return og_name.split(".")[-1].lower()
+
         if embed.image.url and "toast_image" in embed.image.url:
-            ext = embed.image.url.split("/")[-1].split(".")[-1]
+            ext = get_extension(embed.image.url)
             embed.set_image(url=f"attachment://toast_image.{ext}")
 
         if embed.thumbnail.url and "toast_thumbnail" in embed.thumbnail.url:
-            ext = embed.thumbnail.url.split("/")[-1].split(".")[-1]
+            ext = get_extension(embed.thumbnail.url)
             embed.set_thumbnail(url=f"attachment://toast_thumbnail.{ext}")
 
         if embed.author.icon_url and "toast_avatar" in embed.author.icon_url:
-            ext = embed.author.icon_url.split("/")[-1].split(".")[-1]
+            ext = get_extension(embed.author.icon_url)
             embed.set_author(
                 name=embed.author.name,
                 icon_url=f"attachment://toast_avatar.{ext}",
