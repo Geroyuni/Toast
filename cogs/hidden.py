@@ -25,23 +25,17 @@ class CommandsHidden(commands.Cog):
         """
         await itx.response.defer(ephemeral=True)
 
-        node = wavelink.NodePool.get_node()
-
         try:
-            playlist = await node.get_playlist(
-                wavelink.YouTubePlaylist, playlist_link)
-        except wavelink.WavelinkException:
-            await itx.followup.send(
-                "this isn't a playlist link or I can't access it")
-            return
+            playlist = await wavelink.Playable.search(playlist_link)
+        except wavelink.LavalinkLoadException:
+            playlist = None
 
         if not playlist:
             await itx.followup.send(
                 "this isn't a playlist link or I can't access it")
             return
 
-
-        playlist_name = playlist.name.removeprefix('Album - ')
+        playlist_name = playlist.name.removeprefix("Album - ")
         playlist_name_formatted = f"⚪ [{playlist_name}](<{playlist_link}>)"
         track_names = "\n".join([f"⬜ {t.title}" for t in playlist.tracks])
         full_output = f"{playlist_name_formatted}\n\n{track_names}"

@@ -2,12 +2,12 @@ from contextlib import suppress
 import datetime
 import asyncio
 from typing import Literal
+from types import MethodType
 
 from discord import app_commands, Interaction
 from discord.ext import commands
 import wavelink
 import discord
-import aiohttp
 
 
 def fmt_time(seconds):
@@ -54,65 +54,6 @@ def cut(string, length):
     return newstr
 
 
-class Track(wavelink.GenericTrack):
-    """Wavelink Track object with additional attributes."""
-
-    def __init__(self, track, requester=None):
-        super().__init__(track.data)
-
-        self.queue_sign = "."
-        self.message = ""
-        self.requester = requester
-        self._thumb = None
-
-        if self.is_stream:
-            self.length_fmt = "Live"
-        else:
-            self.length_fmt = fmt_time(self.length / 1000)
-
-    async def get_thumbnail(self):
-        if self._thumb:
-            return self._thumb
-
-        if not ("youtube" in self.uri or "youtu.be" in self.uri):
-            self._thumb = "https://files.catbox.moe/bqyvm5.png"
-            return self._thumb
-
-        thumbnail_format = f"https://i.ytimg.com/vi/{self.identifier}/%s.jpg"
-
-        async with aiohttp.ClientSession() as session:
-            async with session.get(thumbnail_format % "maxresdefault") as resp:
-                if resp.status == 404:
-                    self._thumb = thumbnail_format % "hqdefault"
-                else:
-                    self._thumb = thumbnail_format % "maxresdefault"
-
-        return self._thumb
-
-    def formatted_name(self, length: int):
-        """Return cut name with link and tooltip."""
-        message = f", {self.message}" if self.message else ""
-
-        tooltip = (
-            f"{self.requester}: "
-            f"[{self.length_fmt}{message}] {self.author}: {self.title}")
-
-        # Checking hyphen assuming that it could be the 'Author - Name' format
-        if self.author.lower() in self.title.lower() or " - " in self.title:
-            name = self.title
-        else:
-            name = f"{self.author} - {self.title}"
-
-        # Avoid markdown issues and remove stupid youtube 'topic' in names
-        name = name.replace(" - Topic - ", " - ")
-        name = name.replace("[", "(").replace("]", ")")
-        name = discord.utils.escape_markdown(name)
-        name = name.replace("\\-", "-")  # Discord bug shows '\' in links
-        tooltip = tooltip.replace("'", "ʹ")
-
-        return f"[{cut(name, length)}]({self.uri} '{tooltip}')"
-
-
 class Player(wavelink.Player):
     """Custom wavelink Player class."""
 
@@ -122,18 +63,14 @@ class Player(wavelink.Player):
         self.bot = self.client
 
         self.votes = {"skip": set(), "pause": set(), "leave": set()}
-        self.current_track = None  # .track is cleaned when I don't want it to
-        self.queue_msg = None
-        self.tracks = []
-        self.tracks_played = []
-        self.awaiting_track = False
-        self.vote_warning = False
-        self.errored_this_session = False
+        self.queue_message = None
+        self.info = ""
         self.pending_searches = []
         self.total_played = 0
-        self.updated_queue_at = datetime.datetime.now()
+        self.updated_queue_message_at = datetime.datetime.now()
         self.started_session = datetime.datetime.now()
         self.queue_task = self.bot.loop.create_task(self.auto_queue_update())
+        self.do_next_lock = asyncio.Lock()
 
     def update_vote(self, user, vote_type):
         if user not in self.votes[vote_type]:
@@ -157,57 +94,56 @@ class Player(wavelink.Player):
 
         return votes >= required
 
-    @property
-    def position(self):
-        # TODO: Remove when this is fixed in wavelink
-        return min(self.last_position, self.current.duration)
-
     async def get_queue_embed(self):
         """Return queue embed."""
         position = self.position / 1000
-
-        if self.is_paused():
-            npsymbol = "||"
-        elif self.is_playing():
-            npsymbol = ">>"
-        else:
-            npsymbol = f"{self.current_track.queue_sign}."
-
-            if self.current_track.queue_sign == ".":
-                position = self.current_track.length / 1000
-
         tracks = ""
 
-        for track in self.tracks_played:
+        for track in self.queue.history[-3:-1]:
             tracks += f"`{track.queue_sign}.` {track.formatted_name(27)}\n"
 
-        tracks += f"`{npsymbol}` {self.current_track.formatted_name(27)}\n"
+        most_current = self.current or self.queue.history[-1]
 
-        for i, track in enumerate(self.tracks):
+        if self.paused:
+            npsymbol = "||"
+        elif self.playing:
+            npsymbol = ">>"
+        else:
+            npsymbol = f"{most_current.queue_sign}."
+
+            if most_current.queue_sign == ".":
+                position = most_current.length / 1000
+
+        tracks += f"`{npsymbol}` {most_current.formatted_name(27)}\n"
+
+        for i, track in enumerate(self.queue):
             fmt = f"`{i + 1}.` {track.formatted_name(27)}\n"
 
             if i + 1 >= 6 or len(tracks + fmt) >= 2970:
-                amount = len(self.tracks) - i
+                amount = len(self.queue) - i
                 tracks += f"`++` and {amount} more songs"
                 break
 
             tracks += fmt
 
-        if self.current_track.is_stream:
-            time = "Live 🔴"
+        if most_current.is_stream:
+            footer = "Live 🔴"
         else:
-            time = f"{fmt_time(position)} / {self.current_track.length_fmt}"
+            footer = f"{fmt_time(position)} / {most_current.length_fmt}"
 
-        avatar = self.current_track.requester.display_avatar.url
+        if self.info:
+            footer += f" - {self.info}"
+
+        avatar = most_current.requester.display_avatar.url
 
         embed = discord.Embed(description=tracks, color=0x2b2d31)
-        embed.set_thumbnail(url=await self.current_track.get_thumbnail())
-        embed.set_footer(text=time, icon_url=avatar)
+        embed.set_thumbnail(url=most_current.thumbnail)
+        embed.set_footer(text=footer, icon_url=avatar)
         return embed
 
     async def update_queue(self, *, new_message=False, reset_votes=False):
         """Handle creating and updating queue."""
-        if not self.current_track:
+        if not self.queue and not self.queue.history:
             return
 
         if not await self.bot.cooldown_check(self.channel.id, 2):
@@ -220,20 +156,20 @@ class Player(wavelink.Player):
             with suppress(discord.NotFound, AttributeError):
                 message = [m async for m in self.channel.history(limit=1)][0]
 
-                if self.queue_msg.id == message.id:
-                    await self.queue_msg.edit(
+                if self.queue_message.id == message.id:
+                    await self.queue_message.edit(
                         embed=await self.get_queue_embed(),
                         view=QueueButtons(self))
 
-                    self.updated_queue_at = datetime.datetime.now()
+                    self.updated_queue_message_at = datetime.datetime.now()
                     return
 
-                await self.queue_msg.delete()
+                await self.queue_message.delete()
 
-            self.queue_msg = await self.channel.send(
+            self.queue_message = await self.channel.send(
                 embed=await self.get_queue_embed(), view=QueueButtons(self))
 
-            self.updated_queue_at = datetime.datetime.now()
+            self.updated_queue_message_at = datetime.datetime.now()
             return
 
         with suppress(discord.NotFound, AttributeError):
@@ -241,53 +177,37 @@ class Player(wavelink.Player):
                 for vote in self.votes.values():
                     vote.clear()
 
-            await self.queue_msg.edit(
+            await self.queue_message.edit(
                 embed=await self.get_queue_embed(), view=QueueButtons(self))
 
-            self.updated_queue_at = datetime.datetime.now()
+            self.updated_queue_message_at = datetime.datetime.now()
 
     async def do_next(self):
-        """Proceed into next song."""
-        if self.is_playing():
-            return
+        """Get playing into motion, or disconnect if inactive."""
+        async with self.do_next_lock:
+            if self.playing:
+                return
 
-        self.awaiting_track = True
+            if not self.queue:
+                await self.update_queue(reset_votes=True)
+                time = datetime.datetime.now()
+                delta = datetime.timedelta(seconds=15)
 
-        if not self.tracks:
-            await self.update_queue(reset_votes=True)
-            time = datetime.datetime.now()
-            delta = datetime.timedelta(seconds=15)
+                while not self.queue:
+                    await asyncio.sleep(0.1)
 
-            while not self.tracks:
-                await asyncio.sleep(0.2)
+                    if self.pending_searches:
+                        time = datetime.datetime.now()
+                        continue
 
-                members = self.channel.members
-                toast_in_chat = self.guild.me in members
+                    if datetime.datetime.now() - time > delta:
+                        await self.send_disconnect_log("due to inactivity.")
+                        await self.disconnect()
+                        return
 
-                if not toast_in_chat:
-                    await self.send_disconnect_log("I got kicked out lol")
-                    await self.disconnect()
-                    return
-
-                if self.pending_searches:
-                    time = datetime.datetime.now()
-                    continue
-
-                if datetime.datetime.now() - time > delta:
-                    await self.send_disconnect_log("due to inactivity.")
-                    await self.disconnect()
-                    return
-
-        if self.current_track:
-            self.tracks_played.append(self.current_track)
-            del self.tracks_played[:-2]
-
-        self.current_track = self.tracks.pop(0)
-        await self.play(self.current_track)
-
-        self.awaiting_track = False  # must put as soon as play is ran
-        self.total_played += 1
-        await self.update_queue(new_message=True)
+            self.total_played += 1
+            await self.play(self.queue.get())
+            await self.update_queue(new_message=True)
 
     async def auto_queue_update(self):
         """Update queue every so often to update time."""
@@ -295,11 +215,10 @@ class Player(wavelink.Player):
             await asyncio.sleep(10)
             delta = datetime.timedelta(seconds=29)
 
-            if datetime.datetime.now() - self.updated_queue_at < delta:
+            if datetime.datetime.now() - self.updated_queue_message_at < delta:
                 continue
 
-            if self.is_playing() and not (
-                self.is_paused() or self.current_track.is_stream):
+            if self.playing and not (self.paused or self.current.is_stream):
                 await self.update_queue()
 
     async def send_disconnect_log(self, reason):
@@ -309,27 +228,23 @@ class Player(wavelink.Player):
 
         self.already_sent_log = True
 
-        embed = discord.Embed(
-            description=f"Closing the music session {reason}",
-            color=0x2b2d31)
-
         time = datetime.datetime.now() - self.started_session
 
         if time.seconds < 60:
             lasted = f"{time.seconds} seconds"
         elif time.seconds < 3600:
             minutes = int(time.seconds / 60)
-            lasted = f"{minutes} minute{'s' if minutes != 1 else ''}"
+            lasted = f"{minutes} minute{'s'[:minutes^1]}"
         else:
             hours = int(time.seconds / 3600)
-            lasted = f"{hours} hour{'s' if hours != 1 else ''}"
+            lasted = f"{hours} hour{'s'[:hours^1]}"
 
-        played = (
-            f"{self.total_played} song"
-            f"{'s' if self.total_played != 1 else ''}")
-
+        embed = discord.Embed(
+            description=f"Closing the music session {reason}",
+            color=0x2b2d31)
         embed.set_footer(text=
-            f"The music session lasted {lasted}, with {played} played.")
+            f"The music session lasted {lasted}, with "
+            f"{self.total_played} song{'s'[:self.total_played^1]} played.")
 
         await self.channel.send(embed=embed)
 
@@ -344,19 +259,19 @@ class Player(wavelink.Player):
                 search_view.itx.delete_original_response())
 
         with suppress(AttributeError):
-            self.bot.loop.create_task(self.queue_msg.delete())
+            self.bot.loop.create_task(self.queue_message.delete())
 
 class SearchButtons(discord.ui.View):
-    def __init__(self, tracks, itx):
+    def __init__(self, search_results, itx):
         super().__init__(timeout=30)
 
         self.itx = itx
         self.voice_client = itx.guild.voice_client
         self.voice_client.pending_searches.append(self)
-        self.user = tracks[0].requester
+        self.user = search_results[0].requester
 
-        for i, track in enumerate(tracks[:4]):
-            self.add_item(NumberButton(i + 1, track))
+        for i, result in enumerate(search_results[:4]):
+            self.add_item(NumberButton(i + 1, result))
 
         self.add_item(CancelButton())
 
@@ -377,14 +292,14 @@ class SearchButtons(discord.ui.View):
         return check
 
 class NumberButton(discord.ui.Button):
-    def __init__(self, number, track):
+    def __init__(self, number, result):
         super().__init__(label=str(number))
-        self.track = track
+        self.result = result
 
     async def callback(self, itx: Interaction):
-        itx.guild.voice_client.tracks.append(self.track)
+        await itx.guild.voice_client.queue.put_wait(self.result)
 
-        description = f"Enqueued {self.track.formatted_name(31)}"
+        description = f"Enqueued {self.result.formatted_name(31)}"
         embed = discord.Embed(description=description)
         await itx.response.edit_message(embed=embed, view=None)
 
@@ -412,7 +327,39 @@ class Music(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.bot.loop.create_task(self.start_node())
+
+    @staticmethod
+    def formatted_name(self, length: int):
+        """(For use in a Playable) Return cut name with link and tooltip."""
+
+        tooltip = (
+            f"{self.requester}: "
+            f"[{self.length_fmt}] {self.author}: {self.title}")
+
+        # Checking hyphen assuming that it could be the 'Author - Name' format
+        if self.author.lower() in self.title.lower() or " - " in self.title:
+            name = self.title
+        else:
+            name = f"{self.author} - {self.title}"
+
+        # Avoid markdown issues and remove stupid youtube 'topic' in names
+        name = name.replace(" - Topic - ", " - ")
+        name = name.replace("[", "(").replace("]", ")")
+        name = discord.utils.escape_markdown(name)
+        name = name.replace("\\-", "-")  # Discord bug shows '\' in links
+        tooltip = tooltip.replace("'", "ʹ")
+
+        return f"[{cut(name, length)}]({self.uri} '{tooltip}')"
+
+    def prepare_playable(self, playable: wavelink.Playable, requester):
+        """Add extra information I need to a playable track."""
+        playable.queue_sign = "."
+        playable.requester = requester
+        playable.length_fmt = fmt_time(playable.length / 1000)
+        playable.thumbnail = (
+            playable.artwork or "https://files.catbox.moe/bqyvm5.png")
+
+        playable.formatted_name = MethodType(self.formatted_name, playable)
 
     @staticmethod
     async def music_check(itx: Interaction):
@@ -455,16 +402,6 @@ class Music(commands.Cog):
 
         return True
 
-    async def start_node(self):
-        await self.bot.wait_until_ready()
-
-        try:
-            wavelink.NodePool.get_node()
-        except wavelink.InvalidNode:
-            node = wavelink.Node(
-                uri="http://localhost:2333", password="youshallnotpass")
-            await wavelink.NodePool.connect(client=self.bot, nodes=[node])
-
     @app_commands.check(music_check)
     @app_commands.guild_only()
     @app_commands.command()
@@ -484,89 +421,63 @@ class Music(commands.Cog):
         if not itx.guild.voice_client:
             await itx.user.voice.channel.connect(cls=Player)
 
-        # Format query into something usable for node.get_tracks
-        if query.startswith(("http://", "https://")):
-            fetch_query = query
-        elif search_type == "YouTube Music":
-            fetch_query = f"ytmsearch:{query}"
-        elif search_type == "SoundCloud":
-            fetch_query = f"scsearch:{query}"
-        else:
-            fetch_query = f"ytsearch:{query}"
+        sources = {
+            None: wavelink.TrackSource.YouTube,
+            "YouTube": wavelink.TrackSource.YouTube,
+            "YouTube Music": wavelink.TrackSource.YouTubeMusic,
+            "SoundCloud": wavelink.TrackSource.SoundCloud}
 
-        node = wavelink.NodePool.get_node()
+        source = sources[search_type]
 
-        # TODO: wavelink will replace ValueError later
         try:
-            tracks = await node.get_tracks(wavelink.GenericTrack, fetch_query)
-        except (wavelink.WavelinkException, ValueError):
-            try:
-                tracks = await node.get_playlist(
-                    wavelink.YouTubePlaylist, fetch_query)
-            except (wavelink.WavelinkException, ValueError):
-                tracks = None
+            playable = await wavelink.Playable.search(query, source=source)
+        except wavelink.LavalinkLoadException:
+            playable = None
 
-        # Do something with the results of get_tracks
-        if not tracks:
-            if query.startswith(("http://", "https://")):
-                error = "Invalid link, or download was blocked."
-            else:
-                error = "No search results."
-
+        if not playable:
+            error = "No search results or your link is invalid or blocked."
             embed = discord.Embed(description=error, color=0xed2121)
-
             await itx.followup.send(embed=embed)
             await itx.guild.voice_client.do_next()
             return
 
-        if isinstance(tracks, wavelink.YouTubePlaylist):
-            if tracks.selected_track not in (None, -1):
-                selected = tracks.tracks[tracks.selected_track]
-                track = Track(selected, itx.user)
-
-                itx.guild.voice_client.tracks.append(track)
-                description = f"Enqueued {track.formatted_name(31)}"
-                embed = discord.Embed(description=description)
-                await itx.followup.send(embed=embed)
-                await itx.guild.voice_client.update_queue()
-                await itx.guild.voice_client.do_next()
-                return
-
-            for track in tracks.tracks:
-                track = Track(track, itx.user)
-                itx.guild.voice_client.tracks.append(track)
-
-            fmt = "Enqueued %s songs from: [%s](%s)"
-            desc = fmt % (len(tracks.tracks), cut(tracks.name, 23), query)
-            embed = discord.Embed(description=desc)
-            await itx.followup.send(embed=embed)
-
-            await itx.guild.voice_client.update_queue()
-            await itx.guild.voice_client.do_next()
-            return
-
-        if len(tracks) > 1:
+        if isinstance(playable, list) and len(playable) > 1:
+            search_results = playable[:4]
             description = []
-            tracks = [Track(t, itx.user) for t in tracks]
 
-            for i, track in enumerate(tracks[:4]):
-                description.append(f"`{i + 1}.` {track.formatted_name(31)}")
+            for i, result in enumerate(search_results):
+                self.prepare_playable(result, itx.user)
+                description.append(f"`{i + 1}.` {result.formatted_name(31)}")
 
-            view = SearchButtons(tracks, itx)
+            view = SearchButtons(search_results, itx)
             embed = discord.Embed(
                 title="Choose a result",
                 description="\n".join(description))
 
             await itx.followup.send(embed=embed, view=view)
-
             return
 
-        track = Track(tracks[0], itx.user)
-        itx.guild.voice_client.tracks.append(track)
+        if isinstance(playable, wavelink.Playlist):
+            if playable.selected != -1:
+                playable = playable.tracks[playable.selected]
+                self.prepare_playable(playable, itx.user)
+                description = f"Enqueued {playable.formatted_name(31)}"
+            else:
+                for track in playable.tracks:
+                    self.prepare_playable(track, itx.user)
 
-        description = f"Enqueued {track.formatted_name(31)}"
+                description = (
+                    f"Enqueued {len(playable.tracks)} songs from: "
+                    f"[{cut(playable.name, 23)}]({query})")
+        else:
+            playable = playable[0]
+            self.prepare_playable(playable, itx.user)
+            description = f"Enqueued {playable.formatted_name(31)}"
+
         embed = discord.Embed(description=description)
         await itx.followup.send(embed=embed)
+
+        await itx.guild.voice_client.queue.put_wait(playable)
         await itx.guild.voice_client.update_queue()
         await itx.guild.voice_client.do_next()
 
@@ -579,10 +490,15 @@ class Music(commands.Cog):
         await itx.guild.voice_client.update_queue(new_message=True)
 
     @commands.Cog.listener()
-    async def on_wavelink_track_end(self, payload: wavelink.TrackEventPayload):
+    async def on_wavelink_track_end(
+        self, payload: wavelink.TrackEndEventPayload):
+        if not payload.player:
+            return
+
+        payload.player.info = ""
+
         if payload.reason == "LOAD_FAILED":
-            payload.player.current_track.queue_sign = "!"
-            payload.player.current_track.message = payload.reason
+            payload.player.info = "Previous track had trouble playing"
 
         await payload.player.do_next()
 
@@ -591,10 +507,7 @@ class Music(commands.Cog):
         """Leave if people left chat or bot got manually disconnected."""
         voice_client = member.guild.voice_client
 
-        if not voice_client:
-            return
-
-        if len(voice_client.channel.members) == 1:
+        if voice_client and len(voice_client.channel.members) == 1:
             await voice_client.send_disconnect_log("because everyone left.")
             await voice_client.disconnect()
 
@@ -604,7 +517,7 @@ class Skip(discord.ui.Button):
         super().__init__(
             label="Skip" + player.format_vote("skip"),
             emoji=player.bot.toast_emoji("skip"),
-            disabled=not player.is_playing())
+            disabled=not player.playing)
 
         self.player = player
 
@@ -614,22 +527,22 @@ class Skip(discord.ui.Button):
         self.player.update_vote(itx.user, "skip")
 
         if self.player.has_won_vote("skip"):
-            msg = "skipped by vote"
-        elif itx.user == self.player.current_track.requester:
-            msg = "skipped by requester"
+            msg = "Previous track was skipped by vote"
+        elif itx.user == self.player.current.requester:
+            msg = "Previous track was skipped by requester"
         elif self.player.bot.has_permission(itx.user, self.player.guild):
-            msg = f"force-skipped by {itx.user}"
+            msg = f"Previous track was force-skipped by {itx.user}"
         else:
             await self.player.update_queue()
             return
 
-        self.player.current_track.queue_sign = "S"
-        self.player.current_track.message = msg
+        self.player.current.queue_sign = "S"
+        self.player.info = msg
         await self.player.stop()
 
 class Pause(discord.ui.Button):
     def __init__(self, player):
-        if not player.is_paused():
+        if not player.paused:
             label = "Pause"
             emoji = player.bot.toast_emoji("pause")
         else:
@@ -639,7 +552,7 @@ class Pause(discord.ui.Button):
         super().__init__(
             label=label + player.format_vote("pause"),
             emoji=emoji,
-            disabled=not player.is_playing())
+            disabled=not player.playing)
 
         self.player = player
 
@@ -649,38 +562,35 @@ class Pause(discord.ui.Button):
         self.player.update_vote(itx.user, "pause")
 
         if self.player.has_won_vote("pause"):
-            msg = "%s by vote"
-        elif itx.user == self.player.current_track.requester:
-            msg = "%s by requester"
+            msg = "Recently %s by vote"
+        elif itx.user == self.player.current.requester:
+            msg = "Recently %s by requester"
         elif self.player.bot.has_permission(itx.user, self.player.guild):
-            msg = f"force-%s by {itx.user}"
+            msg = f"Recently force-%s by {itx.user}"
         else:
             await self.player.update_queue()
             return
 
-        if self.player.is_paused():
-            self.player.current_track.message = msg % "resumed"
-            await self.player.resume()
+        if self.player.paused:
+            self.player.info = msg % "resumed"
         else:
-            self.player.current_track.message = msg % "paused"
-            await self.player.pause()
+            self.player.info = msg % "paused"
 
+        await self.player.pause(not self.player.paused)
         await self.player.update_queue(reset_votes=True)
 
 class Seek(discord.ui.Button):
     def __init__(self, player):
-        disabled = not player.is_playing() or player.current_track.is_stream
-
         super().__init__(
             label="Seek",
             emoji=player.bot.toast_emoji("seek"),
-            disabled=disabled)
+            disabled=not player.playing or not player.current.is_seekable)
 
         self.player = player
 
     async def callback(self, itx: Interaction):
         can_use = (
-            itx.user == self.player.current_track.requester
+            itx.user == self.player.current.requester
             or self.player.bot.has_permission(itx.user, self.player.guild))
 
         if not can_use:
@@ -704,8 +614,8 @@ class Leave(discord.ui.Button):
         self.player.update_vote(itx.user, "leave")
 
         user_requested_all_queue_tracks = (
-            itx.user == self.player.current_track.requester
-            and all([itx.user == t.requester for t in self.player.tracks]))
+            itx.user == self.player.current.requester
+            and all([itx.user == t.requester for t in self.player.queue]))
 
         if self.player.has_won_vote("leave"):
             reason = "because enough people clicked the Leave button."
@@ -739,10 +649,10 @@ class SeekModal(discord.ui.Modal, title="Seek to a specific timestamp"):
 
         time = self.children[0].value
 
-        if itx.user == self.player.current_track.requester:
-            msg = f"seek {time} by requester"
+        if itx.user == self.player.current.requester:
+            msg = f"Recently jumped to {time} by requester"
         elif self.player.bot.has_permission(itx.user, self.player.guild):
-            msg = f"seek {time} by {itx.user}"
+            msg = f"Recently jumped to {time} by {itx.user}"
 
         if time.startswith(("+", "-")):
             relative_sign, time = time[0], time[1:]
@@ -760,7 +670,7 @@ class SeekModal(discord.ui.Modal, title="Seek to a specific timestamp"):
             seek_to = max(0, position_seconds - seek_to)
 
         await self.player.seek(seek_to * 1000)  # seek uses ms
-        self.player.current_track.message = msg
+        self.player.info = msg
         await asyncio.sleep(0.5)
         await self.player.update_queue()
 
@@ -786,3 +696,10 @@ class QueueButtons(discord.ui.View):
 
 async def setup(bot):
     await bot.add_cog(Music(bot))
+
+    try:
+        wavelink.Pool.get_node()
+    except wavelink.InvalidNodeException:
+        node = wavelink.Node(
+            uri="http://localhost:2333", password="youshallnotpass")
+        await wavelink.Pool.connect(client=bot, nodes=[node])
