@@ -67,8 +67,21 @@ class CommandsHidden(commands.Cog):
 
         playlist_name = playlist.name.removeprefix("Album - ")
         playlist_name_formatted = f"⚪ [{playlist_name}](<{playlist_link}>)"
-        track_names = "\n".join([f"⬜ {t.title}" for t in playlist.tracks])
-        full_output = f"{playlist_name_formatted}\n\n{track_names}"
+        average_track_length = (
+            sum([t.length for t in playlist.tracks]) / len(playlist.tracks))
+
+        track_names = []
+
+        for track in playlist.tracks:
+            title = f"⬜ {track.title}"
+
+            if track.length <= (average_track_length / 2.5):
+                title += " 🔹"
+
+            track_names.append(title)
+
+        track_names = "\n".join(track_names)
+        full_output = f"{playlist_name_formatted}\n\n{track_names.join()}"
 
         if len(full_output) >= 1992:
             full_output = full_output[:1990] + ".."
