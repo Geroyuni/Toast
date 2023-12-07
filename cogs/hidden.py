@@ -1,10 +1,13 @@
+from io import BytesIO
 import html
 
 from discord import app_commands, Interaction
 from discord.utils import escape_markdown
 from discord.ext import commands
+from PIL import Image
 import wavelink
 import discord
+import aiohttp
 
 
 class CommandsHidden(commands.Cog):
@@ -12,6 +15,33 @@ class CommandsHidden(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+
+    async def get_artwork(self, playlist):
+        """Return image file in good size, return url if couldn't download."""
+        async with aiohttp.ClientSession() as session:
+            async with session.get(playlist.tracks[0].artwork) as resp:
+                if resp.status != 200:
+                    return None
+
+                data = BytesIO(await resp.read())
+
+        image = Image.open(data)
+
+        if image.width != image.height:
+            if image.width > image.height:
+                remnant = int((image.width - image.height) / 2)
+                crop = (remnant, 0, image.width - remnant, image.height)
+            else:
+                remnant = int((image.height - image.width) / 2)
+                crop = (0, remnant, image.width, image.height - remnant)
+
+            altered_image = image.crop(crop).resize((150, 150))
+
+        altered_data = BytesIO()
+        altered_image.save(altered_data, format="png")
+        altered_data.seek(0)
+
+        return discord.File(altered_data, filename=f"image.png")
 
     @app_commands.command()
     @app_commands.guilds(898109234091294750)
@@ -44,7 +74,8 @@ class CommandsHidden(commands.Cog):
             full_output = full_output[:1990] + ".."
 
         await itx.followup.send(
-            f"```{html.unescape(full_output)}```", ephemeral=not public)
+            f"```{html.unescape(full_output)}```", ephemeral=not public,
+            file=await self.get_artwork(playlist))
 
     @app_commands.command()
     @app_commands.guilds(898109234091294750)
