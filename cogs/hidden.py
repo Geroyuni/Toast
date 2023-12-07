@@ -53,7 +53,7 @@ class CommandsHidden(commands.Cog):
         :param playlist_link: The link to the playlist
         :param public: Show the result publicly (false by default)
         """
-        await itx.response.defer(ephemeral=True)
+        await itx.response.defer(ephemeral=not public)
 
         try:
             playlist = await wavelink.Playable.search(playlist_link)
@@ -74,7 +74,7 @@ class CommandsHidden(commands.Cog):
             full_output = full_output[:1990] + ".."
 
         await itx.followup.send(
-            f"```{html.unescape(full_output)}```", ephemeral=not public,
+            f"```{html.unescape(full_output)}```",
             file=await self.get_artwork(playlist))
 
     @app_commands.command()
