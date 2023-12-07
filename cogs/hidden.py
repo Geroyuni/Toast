@@ -16,10 +16,13 @@ class CommandsHidden(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    async def get_artwork(self, playlist):
+    async def get_artwork(self, image_link):
         """Return image file in good size, return url if couldn't download."""
+        if not image_link:
+            return None
+
         async with aiohttp.ClientSession() as session:
-            async with session.get(playlist.tracks[0].artwork) as resp:
+            async with session.get(image_link) as resp:
                 if resp.status != 200:
                     return None
 
@@ -81,14 +84,14 @@ class CommandsHidden(commands.Cog):
             track_names.append(title)
 
         track_names = "\n".join(track_names)
-        full_output = f"{playlist_name_formatted}\n\n{track_names.join()}"
+        full_output = f"{playlist_name_formatted}\n\n{track_names}"
 
         if len(full_output) >= 1992:
             full_output = full_output[:1990] + ".."
 
         await itx.followup.send(
             f"```{html.unescape(full_output)}```",
-            file=await self.get_artwork(playlist))
+            file=await self.get_artwork(playlist.tracks[0].artwork))
 
     @app_commands.command()
     @app_commands.guilds(898109234091294750)
