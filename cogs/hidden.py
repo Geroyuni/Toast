@@ -92,6 +92,26 @@ class CommandsHidden(commands.Cog):
 
     @app_commands.command()
     @app_commands.guilds(898109234091294750)
+    async def resize_cover(
+        self, itx: Interaction, image_link: str, public: bool = False
+    ):
+        """Resize an album cover to be 150x150.
+
+        :param image_link: The link to the playlist
+        :param public: Show the result publicly (false by default)
+        """
+        await itx.response.defer(ephemeral=not public)
+
+        file = await self.get_artwork(image_link)
+
+        if not file:
+            await itx.followup.send("is this a valid image? Couldn't resize")
+            return
+
+        await itx.followup.send(file=file)
+
+    @app_commands.command()
+    @app_commands.guilds(898109234091294750)
     async def ratings(self, itx: Interaction):
         """Add or update a message containing all your thread ratings
         in #cantinho."""
