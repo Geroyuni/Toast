@@ -17,7 +17,7 @@ class CommandsHidden(commands.Cog):
         self.bot = bot
 
     async def get_artwork(self, image_link):
-        """Return image file in good size, return url if couldn't download."""
+        """Return image file in good size, return None if failed."""
         if not image_link:
             return None
 
@@ -38,10 +38,12 @@ class CommandsHidden(commands.Cog):
                 remnant = int((image.height - image.width) / 2)
                 crop = (0, remnant, image.width, image.height - remnant)
 
-            altered_image = image.crop(crop).resize((150, 150))
+            image = image.crop(crop)
+
+        image = image.resize((150, 150))
 
         altered_data = BytesIO()
-        altered_image.save(altered_data, format="png")
+        image.save(altered_data, format="png")
         altered_data.seek(0)
 
         return discord.File(altered_data, filename=f"image.png")
@@ -78,7 +80,7 @@ class CommandsHidden(commands.Cog):
         for track in playlist.tracks:
             title = f"⬜ {track.title}"
 
-            if track.length <= (average_track_length / 2.5):
+            if track.length <= (average_track_length / 2):
                 title += " 🔹"
 
             track_names.append(title)
