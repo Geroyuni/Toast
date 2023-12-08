@@ -35,7 +35,7 @@ class Starboard(commands.Cog):
         message = await self.bot.fetch_message(src.channel_id, src.message_id)
 
         if not self.check_permissions(message, is_starboard=True):
-            self.bot.print(f"Starboard perms fail {message.guild.name}")
+            self.bot.log(message.guild.id, f"Starboard perms failed.")
             return
 
         msgs = await self.fetch_both_messages(message, starboard)
@@ -45,7 +45,7 @@ class Starboard(commands.Cog):
             return
 
         if not self.check_permissions(msgs["original"], is_starboard=False):
-            self.bot.print("OG message perms fail on {message.guild.name}")
+            self.bot.log(message.guild.id, "Starboard perms failed.")
             return
 
         # Update stats message for this starboard if needed

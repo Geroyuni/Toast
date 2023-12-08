@@ -102,7 +102,7 @@ class CommandsHidden(commands.Cog):
     ):
         """Resize an album cover to be 150x150.
 
-        :param image_link: The link to the playlist
+        :param image_link: The link to the image
         :param public: Show the result publicly (false by default)
         """
         await itx.response.defer(ephemeral=not public)

@@ -127,18 +127,23 @@ class Player(wavelink.Player):
             tracks += fmt
 
         if most_current.is_stream:
-            footer = "Live 🔴"
+            footer = "Live"
+            icon_url = "https://files.catbox.moe/j7p5dg.png"
         else:
+            circle_index = int(7 * (position / (most_current.length / 1000)))
+            circles = (
+                "z5f2nv", "0xixvt", "vrme8x", "zzg5i2",
+                "aguy64", "ry5vrh", "5kjsb1", "7si0i6")
+
             footer = f"{fmt_time(position)} / {most_current.length_fmt}"
+            icon_url = f"https://files.catbox.moe/{circles[circle_index]}.png"
 
         if self.info:
             footer += f" - {self.info}"
 
-        avatar = most_current.requester.display_avatar.url
-
         embed = discord.Embed(description=tracks, color=0x2b2d31)
         embed.set_thumbnail(url=most_current.thumbnail)
-        embed.set_footer(text=footer, icon_url=avatar)
+        embed.set_footer(text=footer, icon_url=icon_url)
         return embed
 
     async def update_queue(self, *, new_message=False, reset_votes=False):
@@ -357,7 +362,7 @@ class Music(commands.Cog):
         playable.requester = requester
         playable.length_fmt = fmt_time(playable.length / 1000)
         playable.thumbnail = (
-            playable.artwork or "https://files.catbox.moe/bqyvm5.png")
+            playable.artwork or "https://files.catbox.moe/s6w50k.png")
 
         playable.formatted_name = MethodType(self.formatted_name, playable)
 
@@ -612,9 +617,10 @@ class Leave(discord.ui.Button):
         await itx.response.defer()
 
         self.player.update_vote(itx.user, "leave")
+        most_current = self.player.current or self.player.queue.history[-1]
 
         user_requested_all_queue_tracks = (
-            itx.user == self.player.current.requester
+            itx.user == most_current.requester
             and all([itx.user == t.requester for t in self.player.queue]))
 
         if self.player.has_won_vote("leave"):
