@@ -347,13 +347,7 @@ class Music(commands.Cog):
         else:
             name = f"{self.author} - {self.title}"
 
-        # Avoid markdown issues and remove stupid youtube 'topic' in names
-        name = name.replace(" - Topic - ", " - ")
-        name = name.replace("[", "(").replace("]", ")")
-        name = discord.utils.escape_markdown(name)
-        name = name.replace("\\-", "-")  # Discord bug shows '\' in links
-        tooltip = tooltip.replace("'", "ʹ")
-
+        name = name.replace(" - Topic - ", " - ")  # dumb YouTube thing
         return f"[{cut(name, length)}]({self.uri} '{tooltip}')"
 
     def prepare_playable(self, playable: wavelink.Playable, requester):
