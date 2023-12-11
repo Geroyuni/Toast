@@ -338,7 +338,7 @@ class Music(commands.Cog):
         """(For use in a Playable) Return cut name with link and tooltip."""
 
         tooltip = (
-            f"{self.requester}: "
+            f"{self.requester.display_name}: "
             f"[{self.length_fmt}] {self.author}: {self.title}")
 
         # Checking hyphen assuming that it could be the 'Author - Name' format
