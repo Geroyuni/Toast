@@ -13,38 +13,6 @@ from cogs.settings import CommandsSettings
 from cogs.servers import CommandsServers
 from cogs.embed import EmbedEditorView
 
-class Context(commands.Context):
-    """Modified Context allowing for non-slash command edit/deletion."""
-    async def isend(self, content=None, *, dest=None, embed=None, file=None):
-        """Do what ctx.send does, while keeping track of the invoker/invoked.
-
-        The *invoker* message is the one that used the command,
-        then *invoking* a message by the bot.
-        By keeping track, the bot can edit or delete its own messages
-        in case someone edits a command.
-        """
-
-        invoker = self.channel.id, self.message.id
-        invoked = self.bot.invoke_dict.get(invoker)
-
-        # Edit message instead of sending a new one if an invoked exists
-        if invoked:
-            message = await self.bot.fetch_message(invoked[0], invoked[1])
-
-            if message:
-                cant_edit = (
-                    file or message.attachments or
-                    (dest or self.channel) != message.channel)
-
-                if cant_edit:
-                    await message.delete()
-                else:
-                    edited = await message.edit(content=content, embed=embed)
-                    return edited
-
-        sent = await (dest or self).send(content, embed=embed, file=file)
-        self.bot.invoke_dict[invoker] = sent.channel.id, sent.id
-        return sent
 
 class AskView(discord.ui.View):
     """Provide a button to shutdown the bot anyway."""
@@ -55,6 +23,83 @@ class AskView(discord.ui.View):
     async def shutdown(self, itx: Interaction, button: discord.ui.Button):
         await itx.response.defer()
         self.stop()
+
+
+class EditCodeView(discord.ui.View):
+    """View for editing code in Python command."""
+    def __init__(self, bot):
+        super().__init__(timeout=None)
+        self.code = None
+        self.bot = bot
+
+    @discord.ui.button(label="Edit code", style=discord.ButtonStyle.blurple)
+    async def edit_code(self, itx: Interaction, button: discord.ui.Button):
+        await itx.response.send_modal(CodeModal(self))
+
+    async def execute_code(self, itx: Interaction, code):
+        redirected_out = StringIO()
+        env = {"bot": self.bot, "itx": itx, "discord": discord}
+        env.update(globals())
+
+        try:
+            with redirect_stdout(redirected_out):
+                exec(f"async def func():\n{textwrap.indent(code, '  ')}", env)
+                await env["func"]()
+        except Exception:
+            outputs = redirected_out.getvalue(), traceback.format_exc()
+        else:
+            outputs = redirected_out.getvalue(), ""
+
+        result = "\n".join([f"```\n{i}```" for i in outputs if i.strip()])
+
+        if len(result) > 4000:
+            content = "too long; printing to console"
+            embed = None
+            self.bot.print("\n".join(outputs), color="BLUE")
+        elif len(result) > 2000:
+            content = None
+            embed = discord.Embed(description=result, color=0x2b2d31)
+        else:
+            content = result or "`empty result`"
+            embed = None
+
+        return content, embed
+
+    async def update(self, itx: Interaction, code):
+        self.code = code
+        content, embed = await self.execute_code(itx, code)
+        await itx.response.edit_message(content=content, embed=embed)
+
+    async def new_message(self, itx: Interaction, code):
+        await itx.response.defer(ephemeral=True)
+
+        if "\n" not in code and not code.startswith("print("):
+            code = f"print({code})"
+
+        self.code = code
+        content, embed = await self.execute_code(itx, code)
+
+        await itx.followup.send(
+            content=content, embed=embed, view=self, ephemeral=True)
+
+
+class CodeModal(discord.ui.Modal, title="Edit code"):
+    def __init__(self, view):
+        super().__init__()
+        self.view = view
+
+        self.add_item(discord.ui.TextInput(
+            label="Code",
+            default=self.view.code,
+            placeholder='print("hello world")',
+            style=discord.TextStyle.paragraph,
+            max_length=4000,
+            required=True))
+
+    async def on_submit(self, itx: Interaction):
+        code = self.children[0].value
+        await self.view.update(itx, code)
+
 
 class CommandsOwner(commands.Cog):
     """All of the owner commands."""
@@ -107,7 +152,7 @@ class CommandsOwner(commands.Cog):
 
     @app_commands.check(is_owner)
     @app_commands.command()
-    @app_commands.allowed_installs(users=True)
+    @app_commands.allowed_installs(guilds=False, users=True)
     async def owner(
         self,
         itx: Interaction,
@@ -120,6 +165,7 @@ class CommandsOwner(commands.Cog):
         embed: str = None,
         avatar: discord.Attachment = None,
         invite: bool = False,
+        python: str = None,
         recover_starboard_db: bool = False
     ):
         """Bot owner command 🤔. I can't hide this, blame Discord"""
@@ -141,6 +187,8 @@ class CommandsOwner(commands.Cog):
             return await self.avatar(itx, avatar)
         if invite:
             return await self.invite(itx)
+        if python:
+            return await self.python(itx, python)
         if recover_starboard_db:
             return await self.recover_starboard_db(itx)
 
@@ -211,6 +259,11 @@ class CommandsOwner(commands.Cog):
         await itx.response.send_message(ephemeral=True, content=
             f"<{discord.utils.oauth_url(self.bot.user.id)}>")
 
+    async def python(self, itx: Interaction, code: str):
+        """Open up a place to type Python commands."""
+        view = EditCodeView(self.bot)
+        await view.new_message(itx, code)
+
     async def recover_starboard_db(self, itx: Interaction):
         """If all goes to shit, recover the ids from starboard posts."""
         await itx.response.defer(ephemeral=True)
@@ -272,94 +325,6 @@ class CommandsOwner(commands.Cog):
 
         guilds.sort(key=lambda i: i.name.lower())
         return guilds
-
-    @commands.is_owner()
-    @commands.command()
-    async def python(self, ctx, *, body):
-        """Run the given python code inside the bot. Non-slash command."""
-        redirected_out = StringIO()
-        env = {"bot": self.bot, "ctx": ctx, "discord": discord}
-        env.update(globals())
-        body = self.trim_codeblock(body)
-
-        if "\n" not in body and not body.startswith("print("):
-            body = f"print({body})"
-
-        try:
-            with redirect_stdout(redirected_out):
-                exec(f"async def func():\n{textwrap.indent(body, '  ')}", env)
-                await env["func"]()
-        except Exception:
-            outputs = redirected_out.getvalue(), traceback.format_exc()
-        else:
-            outputs = redirected_out.getvalue(), ""
-
-            if "ctx.isend(" in body:
-                return
-
-        msg = "\n".join([f"```{i}```" for i in outputs if i.strip()])
-
-        if len(msg) > 4000:
-            await ctx.isend("too long; printing to console")
-            ctx.bot.print("\n".join(outputs), color="BLUE")
-        elif len(msg) > 2000:
-            embed = discord.Embed(description=msg, color=0x2b2d31)
-            await ctx.isend(embed=embed)
-        else:
-            await ctx.isend(msg or "`empty result`")
-
-    @commands.Cog.listener()
-    async def on_message(self, message):
-        """Like the default on_message, but using my custom Context."""
-        if message.author.bot:
-            return
-
-        ctx = await self.bot.get_context(message, cls=Context)
-        await self.bot.invoke(ctx)
-
-    @commands.Cog.listener()
-    async def on_message_edit(self, before, after):
-        """Allow for editing non-slash commands via editing messages."""
-        if before.clean_content == after.clean_content or after.author.bot:
-            return
-
-        # Remove bot reactions
-        for reaction in after.reactions:
-            async for u in reaction.users():
-                if u == self.bot.user:
-                    await reaction.remove(u)
-
-        invoker = (after.channel.id, after.id)
-        invoked = self.bot.invoke_dict.get(invoker)
-        timestamp = None
-
-        if invoked:
-            invoked_msg = await self.bot.fetch_message(invoked[0], invoked[1])
-
-            if invoked_msg:
-                timestamp = invoked_msg.edited_at or "unedited"
-
-        ctx = await self.bot.get_context(after, cls=Context)
-        await self.bot.invoke(ctx)
-
-        if timestamp:
-            invoked_msg = await self.bot.fetch_message(invoked[0], invoked[1])
-
-            if invoked_msg:
-                if (invoked_msg.edited_at or "unedited") == timestamp:
-                    await invoked_msg.edit(content="(empty)", embed=None)
-
-    @commands.Cog.listener()
-    async def on_message_delete(self, message):
-        """Allow for deleting non-slash commands when deleting messages."""
-        invoker = message.channel.id, message.id
-        invoked = self.bot.invoke_dict.pop(invoker, None)
-
-        if invoked:
-            message = await self.bot.fetch_message(invoked[0], invoked[1])
-
-            if message:
-                await message.delete()
 
 
 async def setup(bot):
