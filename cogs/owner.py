@@ -194,8 +194,11 @@ class CommandsOwner(commands.Cog):
 
     async def say(self, itx: Interaction, words: str):
         """Make toast speak."""
-        await itx.channel.send(words)
-        await itx.response.send_message("sent", ephemeral=True)
+        try:
+            await itx.channel.send(words)
+            await itx.response.send_message("sent", ephemeral=True)
+        except discord.Forbidden:
+            await itx.response.send_message(words)
 
     async def restart(self, itx: Interaction, cog: str):
         """Restart specific cog of the bot or all of it."""
