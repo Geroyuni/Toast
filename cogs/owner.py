@@ -107,6 +107,7 @@ class CommandsOwner(commands.Cog):
 
     @app_commands.check(is_owner)
     @app_commands.command()
+    @app_commands.allowed_installs(users=True)
     async def owner(
         self,
         itx: Interaction,

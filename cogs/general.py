@@ -40,6 +40,7 @@ class CommandsGeneral(commands.Cog):
         return names.get(match[0]) if match else None
 
     @app_commands.command()
+    @app_commands.allowed_installs(guilds=True, users=True)
     async def info(
         self,
         itx: Interaction,
@@ -123,6 +124,7 @@ class CommandsGeneral(commands.Cog):
         return guilds
 
     @app_commands.command(name="random")
+    @app_commands.allowed_installs(guilds=True, users=True)
     async def random_(self, itx: Interaction, things: str):
         """Picks a random option or number.
 
@@ -160,6 +162,7 @@ class CommandsGeneral(commands.Cog):
             for name in names if current.lower() in name.lower()]
 
     @app_commands.command()
+    @app_commands.allowed_installs(guilds=True, users=True)
     async def hex(self, itx: Interaction, value: str, private: bool = False):
         """Shows a hex color visually.
 
