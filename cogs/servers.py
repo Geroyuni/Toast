@@ -180,31 +180,6 @@ class CommandsServers(commands.Cog):
             f"Created {invite.url} (max uses: {max_uses or 'unlimited'}, "
             f"expires in days: {max_age_days or 'never'})")
 
-    @app_commands.checks.bot_has_permissions(add_reactions=True)
-    @app_commands.guild_only()
-    @app_commands.command()
-    async def poll(self, itx: Interaction, title: str, choices: str):
-        """Create a poll.
-
-        :param title: The title of your poll
-        :param choices: List of choices separated by comma
-        """
-        choices = [i.strip() for i in choices.split(",")]
-        description = []
-        get_letter = lambda i: chr(65 + i)
-        get_emoji = lambda i: chr(0x1F1E6 + i)
-
-        for i, option in enumerate(choices[:20]):
-            description.append(f"`{get_letter(i)}.` {option}")
-
-        embed = discord.Embed(title=title, description="\n".join(description))
-        await itx.response.send_message(embed=embed)
-        message = await itx.original_response()
-
-        with suppress(discord.HTTPException):
-            for i in range(0, len(choices[:20])):
-                await message.add_reaction(get_emoji(i))
-
     @app_commands.default_permissions(manage_guild=True)
     @app_commands.guild_only()
     @app_commands.command()
