@@ -193,7 +193,7 @@ class Player(wavelink.Player):
             if self.playing:
                 return
 
-            if not self.queue:
+            if not self.queue and self.queue.mode == wavelink.QueueMode.normal:
                 await self.update_queue(reset_votes=True)
                 time = datetime.datetime.now()
                 delta = datetime.timedelta(seconds=15)
@@ -537,7 +537,7 @@ class Skip(discord.ui.Button):
 
         self.player.current.queue_sign = "S"
         self.player.info = msg
-        await self.player.stop()
+        await self.player.skip()
 
 class Pause(discord.ui.Button):
     def __init__(self, player):
@@ -578,12 +578,12 @@ class Pause(discord.ui.Button):
         await self.player.pause(not self.player.paused)
         await self.player.update_queue(reset_votes=True)
 
-class Seek(discord.ui.Button):
+class More(discord.ui.Button):
     def __init__(self, player):
         super().__init__(
-            label="Seek",
-            emoji=player.bot.toast_emoji("seek"),
-            disabled=not player.playing or not player.current.is_seekable)
+            label="More",
+            emoji=player.bot.toast_emoji("more"),
+            disabled=not player.playing)
 
         self.player = player
 
@@ -594,10 +594,10 @@ class Seek(discord.ui.Button):
 
         if not can_use:
             await itx.response.send_message(ephemeral=True, content=
-                "you must be the requester of the song or an admin")
+                "you must be the requester of the song or a server manager")
             return
 
-        await itx.response.send_modal(SeekModal(self.player))
+        await itx.response.send_modal(MoreModal(self.player))
 
 class Leave(discord.ui.Button):
     def __init__(self, player):
@@ -634,43 +634,91 @@ class Leave(discord.ui.Button):
         await self.player.send_disconnect_log(reason)
         await self.player.disconnect()
 
-class SeekModal(discord.ui.Modal, title="Seek to a specific timestamp"):
-    timestamp = discord.ui.TextInput(
-        label="Timestamp",
-        placeholder="Examples: 01:30, 30, +30, -30",
-        max_length=10)
-
+class MoreModal(discord.ui.Modal, title="More settings"):
     def __init__(self, player):
         super().__init__()
         self.player = player
 
+        self.default_position = fmt_time(self.player.position / 1000)
+        self.default_volume = f"{self.player.volume}%"
+        self.default_loop_mode = str(self.player.queue.mode.value)
+
+        self.add_item(discord.ui.TextInput(
+            label="Timestamp",
+            default=self.default_position,
+            placeholder=self.default_position,
+            max_length=10,
+            required=False))
+
+        self.add_item(discord.ui.TextInput(
+            label="Volume (0 to 500%) [server managers only]",
+            default=self.default_volume,
+            placeholder=self.default_volume,
+            max_length=4,
+            required=False))
+
+        self.add_item(discord.ui.TextInput(
+            label="Loop mode [server managers only]",
+            default=self.default_loop_mode,
+            placeholder="Examples: 0 (off), 1 (this song), 2 (whole queue)",
+            max_length=10,
+            required=False))
+
+        self.add_item(discord.ui.TextInput(
+            label="Shuffle [server managers only]",
+            placeholder="Type anything here to shuffle the queue",
+            required=False))
+
     async def on_submit(self, itx: discord.Interaction):
         await itx.response.defer()
 
-        time = self.children[0].value
+        position, volume, loop_mode, shuffle = [i.value for i in self.children]
+        queue_info = None
+
+        if position and position != self.default_position:
+            queue_info = f"Recently jumped to {position}"
+
+            split_times = zip([1, 60, 3600], position.split(":")[::-1])
+            seek_to = sum(unit * int(times) for unit, times in split_times)
+
+            await self.player.seek(seek_to * 1000)  # seek uses ms
+
+        if volume and volume != self.default_volume:
+            await self.player.set_volume(int(volume.strip("%")))
+
+        if self.player.bot.has_permission(itx.user, self.player.guild):
+            if volume and volume != self.default_volume:
+                queue_info = f"Volume recently set to {volume}"
+                await self.player.set_volume(int(volume.strip("%")))
+
+            if loop_mode and loop_mode != self.default_loop_mode:
+                queue_mode = wavelink.QueueMode(int(loop_mode))
+                queue_info = f"Loop mode recently set to {queue_mode.name}"
+                self.player.queue.mode = queue_mode
+
+            if shuffle:
+                queue_info = "Queue recently shuffled"
+                self.player.queue.shuffle()
+
+        values_changed = (
+            position != self.default_position,
+            volume != self.default_volume,
+            loop_mode != self.default_loop_mode,
+            shuffle)
+
+        if values_changed.count(True) > 1:
+            queue_info = "Multiple changes recently made"
+
+        if not queue_info:
+            return
 
         if itx.user == self.player.current.requester:
-            msg = f"Recently jumped to {time} by requester"
+            queue_info = queue_info + " by requester"
         elif self.player.bot.has_permission(itx.user, self.player.guild):
-            msg = f"Recently jumped to {time} by {itx.user}"
+            queue_info = queue_info + f" by {itx.user}"
 
-        if time.startswith(("+", "-")):
-            relative_sign, time = time[0], time[1:]
-        else:
-            relative_sign = None
+        self.player.info = queue_info
 
-        split_times = zip([1, 60, 3600], time.split(":")[::-1])
-        seek_to = sum(unit * int(times) for unit, times in split_times)
-
-        position_seconds = int(self.player.position / 1000)
-
-        if relative_sign == "+":
-            seek_to = position_seconds + seek_to
-        elif relative_sign == "-":
-            seek_to = max(0, position_seconds - seek_to)
-
-        await self.player.seek(seek_to * 1000)  # seek uses ms
-        self.player.info = msg
         await asyncio.sleep(0.5)
         await self.player.update_queue()
 
@@ -680,7 +728,7 @@ class QueueButtons(discord.ui.View):
 
         self.add_item(Pause(player))
         self.add_item(Skip(player))
-        self.add_item(Seek(player))
+        self.add_item(More(player))
         self.add_item(Leave(player))
 
         self.player = player
