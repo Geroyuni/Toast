@@ -1,5 +1,6 @@
 from io import BytesIO
 import html
+import math
 
 from discord import app_commands, Interaction
 from discord.utils import escape_markdown
@@ -133,18 +134,15 @@ class CommandsHidden(commands.Cog):
         await itx.response.defer(ephemeral=True)
 
         threads = {}
-        total = {
-            "🔴": 0, "🟠": 0, "🟡": 0, "⚪": 0,
-            "🔵": 0, "🟢": 0, "🟣": 0, "⚫": 0}
         name_to_circle = {
-            "red": "🔴", "orange": "🟠", "yellow": "🟡", "white": "⚪",
-            "blue": "🔵", "green": "🟢", "purple": "🟣", "black": "⚫"}
-
-        content = ["\😔\🔵\🟢\🟣\⚫"]
+            "red": "🔴", "orange": "🟠", "yellow": "🟡", "blue": "🔵",
+            "green": "🟢", "purple": "🟣", "black": "⚫"}
+        circles = "🔴", "🟠", "🟡", "🔵", "🟢", "🟣", "⚫"
+        content = []
         sort = lambda x: x[0].casefold()
 
         async def iterate_thread(thread):
-            threads[thread.name] = total.copy()
+            threads[thread.name] = {"albums": 0, "rating": 0}
 
             async for message in thread.history(limit=None):
                 for line in message.content.split("\n"):
@@ -152,27 +150,24 @@ class CommandsHidden(commands.Cog):
                     if line.startswith(("# ", "## ", "### ")):
                         line = line.split(" ", 1)[1]
 
-                    should_not_ignore_line = line and "**" not in line
+                    if not line or "**" in line:
+                        continue
 
-                    if should_not_ignore_line:
-                        is_regular_circle = line[0] in "🔴🟠🟡⚪🔵🟢🟣⚫"
-                        is_custom_circle = (
-                            line.startswith("<:")
-                            and "_circle" in line.split(" ")[0])
+                    is_regular_circle = line[0] in circles
+                    is_custom_circle = (
+                        line.startswith("<:")
+                        and "_circle" in line.split(" ")[0])
 
-                        if is_regular_circle:
-                            threads[thread.name][line[0]] += 1
-                        if is_custom_circle:
-                            color_name = line.split("_")[0][8:]
-                            circle = name_to_circle[color_name]
-                            threads[thread.name][circle] += 1
+                    if is_regular_circle:
+                        rating = circles.index(line[0])
+                    elif is_custom_circle:
+                        color_name = line.split("_")[0][8:]
+                        rating = circles.index(name_to_circle[color_name])
+                    else:
+                        continue
 
-        def get_numbers(ratings):
-            bad_number = str(sum(tuple(ratings.values())[0:3])).zfill(2)
-            good_numbers = [
-                str(r).zfill(2) for r in tuple(ratings.values())[4:]]
-
-            return "`%s %s %s %s %s`" % tuple([bad_number] + good_numbers)
+                    threads[thread.name]["rating"] += rating
+                    threads[thread.name]["albums"] += 1
 
         for thread in itx.channel.threads:
             await iterate_thread(thread)
@@ -180,22 +175,25 @@ class CommandsHidden(commands.Cog):
         async for thread in itx.channel.archived_threads(limit=None):
             await iterate_thread(thread)
 
-        for thread_name, ratings in sorted(threads.items(), key=sort):
-            if not sum(ratings.values()):
-                continue
+        for thread_name, totals in sorted(threads.items(), key=sort):
+            if not totals["albums"]:
+                rating_color = "⚪"
+            else:
+                rating_sum = totals["rating"] / totals["albums"]
+                rating_color = circles[math.ceil(rating_sum)]
 
             content.append(
-                f"{get_numbers(ratings)} {escape_markdown(thread_name)}")
+                f"{rating_color} `{str(totals['albums']).zfill(2)}` "
+                f"{escape_markdown(thread_name)}")
 
-            for emoji, value in ratings.items():
-                total[emoji] += value
-
-        content.append(
-            f"**{get_numbers(total)} {len(threads)} threads total**")
+        albums = sum([t["albums"] for t in threads.values()])
 
         embed = discord.Embed(
-            title=f"{itx.user.name}'s ratings",
-            description="\n".join(content).replace("00", "--"))
+            title=f"{itx.user.display_name}'s ratings",
+            description="\n".join(content))
+
+        embed.set_footer(
+            text=f"\n{albums} albums seen in {len(threads)} threads.")
 
         async for message in itx.channel.history(limit=25):
             checks = (
