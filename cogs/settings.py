@@ -249,6 +249,10 @@ class CommandsSettings(commands.Cog):
     async def on_ready(self):
         """Prepare default settings for guilds not in data on start."""
         for guild in self.bot.guilds:
+            # if guild.id not in self.bot.db["whitelist"]:
+            #     await guild.leave()
+            #     continue
+
             if guild.id not in self.bot.db["logs"]:
                 self.bot.db["logs"][guild.id] = []
 
@@ -265,6 +269,10 @@ class CommandsSettings(commands.Cog):
     @commands.Cog.listener()
     async def on_guild_join(self, guild):
         """Prepare default settings for new guilds."""
+        # if guild.id not in self.bot.db["whitelist"]:
+        #     await guild.leave()
+        #     return
+
         self.bot.db["settings"][guild.id] = self.default_settings.copy()
         self.bot.db["logs"][guild.id] = []
 
