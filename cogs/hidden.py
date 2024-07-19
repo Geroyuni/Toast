@@ -39,7 +39,8 @@ class CommandsHidden(commands.Cog):
 
             image = image.crop(crop)
 
-        image = image.resize((150, 150))
+        if image.width < 350:
+            image = image.resize((350, 350))
 
         altered_data = BytesIO()
         image.save(altered_data, format="png")
