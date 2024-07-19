@@ -161,42 +161,6 @@ class CommandsGeneral(commands.Cog):
             app_commands.Choice(name=name, value=name)
             for name in names if current.lower() in name.lower()]
 
-    @app_commands.command()
-    @app_commands.allowed_installs(guilds=True, users=True)
-    async def hex(self, itx: Interaction, value: str, private: bool = False):
-        """Shows a hex color visually.
-
-        :param value: A hex value like #ff9030. Type 'random' for a random one
-        :param private: Show result only to you (false by default)
-        """
-        if value == "random":
-            value = hex(random.randint(0, 0xffffff))
-
-        try:
-            stripped_value = value.strip("#").removeprefix("0x")[:6]
-            int_value = max(0, min(0xffffff, int(stripped_value, 16)))
-        except ValueError:
-            await itx.response.send_message(ephemeral=True, content=
-                "this isn't a valid hex value")
-            return
-
-        hex_color = f"#{hex(int_value)[2:].zfill(6)}"
-        rgb_color = ImageColor.getcolor(hex_color, "RGB")
-
-        embed = discord.Embed(title=hex_color)
-        embed.description = f"RGB {', '.join([str(c) for c in rgb_color])}"
-
-        data = BytesIO()
-        image = Image.new("RGB", (50,50), rgb_color)
-        image.save(data, format="png")
-        data.seek(0)
-
-        file = discord.File(data, filename=f"{hex_color[1:]}.png")
-        embed.set_thumbnail(url=f"attachment://{hex_color[1:]}.png")
-
-        await itx.response.send_message(
-            embed=embed, file=file, ephemeral=private)
-
 
 async def setup(bot):
     await bot.add_cog(CommandsGeneral(bot))

@@ -159,27 +159,6 @@ class CommandsServers(commands.Cog):
 
         return choices
 
-    @app_commands.default_permissions(create_instant_invite=True)
-    @app_commands.checks.bot_has_permissions(create_instant_invite=True)
-    @app_commands.guild_only()
-    @app_commands.command()
-    async def invite(
-        self, itx: Interaction, max_uses: int, max_age_days: float
-    ):
-        """Create an invite link with specific settings more quickly.
-
-        :param max_uses: Number of uses it can have (0 means unlimited)
-        :param max_age_days: How many days before it expires (0 means never)
-        """
-        invite = await itx.channel.create_invite(
-            max_uses=max_uses,
-            max_age=int(max_age_days * 86400),
-            reason=self.bot.fmt_command(itx))
-
-        await itx.response.send_message(ephemeral=True, content=
-            f"Created {invite.url} (max uses: {max_uses or 'unlimited'}, "
-            f"expires in days: {max_age_days or 'never'})")
-
     @app_commands.default_permissions(manage_guild=True)
     @app_commands.guild_only()
     @app_commands.command()
