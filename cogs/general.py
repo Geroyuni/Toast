@@ -18,97 +18,58 @@ class CommandsGeneral(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    async def search(self, search_type, query):
-        """Return user or guild with ID or close enough name."""
-        names = {}
-
-        if search_type == "user":
-            with suppress(discord.NotFound, ValueError):
-                return await self.bot.fetch_user(int(query))
-
-            for m in self.bot.get_all_members():
-                names[str(m)] = names[m.display_name] = names[m.name] = m
-
-        elif search_type == "guild":
-            if query.isdecimal() and (guild := self.bot.get_guild(int(query))):
-                return guild
-
-            for g in self.bot.guilds:
-                names[str(g)] = g
-
-        match = get_close_matches(query, names.keys(), n=1)
-        return names.get(match[0]) if match else None
-
     @app_commands.command()
     @app_commands.allowed_installs(guilds=True, users=True)
-    async def info(
+    async def images(
         self,
         itx: Interaction,
         user: Union[discord.Member, discord.User, None],
         guild: str = None,
         private: bool = False
     ):
-        """Shows information about a user or server I'm in. If nothing is
-        entered, it shows about yourself.
+        """Get images from a user or server.
 
-        :param user: Get information from a specific user
-        :param guild: Get information from a specific guild
+        :param user: Get images from a specific user
+        :param guild: Get images from a specific guild
         :param private: Show result only to you (false by default)
         """
-        if guild:
-            guild = await self.search("guild", guild)
+        await itx.response.defer(ephemeral=private)
+        files = []
 
-            if not guild:
-                await itx.response.send_message(
-                    "the guild you typed wasn't found", ephemeral=True)
-                return
-
-            created = format_dt(guild.created_at, style="R")
-
-            embed = discord.Embed(title=f"**{escape_markdown(guild.name)}**")
-            embed.add_field(name="Created", value=created)
-            embed.add_field(name="Members", value=guild.member_count)
-            embed.add_field(name="Owner", value=guild.owner.mention)
-            embed.set_thumbnail(url=guild.icon.url)
-
-            await itx.response.send_message(embed=embed, ephemeral=private)
-            return
-
-        if not user:
+        if not user and not guild:
             user = itx.user
 
-        is_bot = self.bot.toast_emoji("bot_account") if user.bot else ''
-        created = format_dt(user.created_at, style="R")
+        if user:
+            user_object_with_banner = await self.bot.fetch_user(user.id)
 
-        embed = discord.Embed(title=f"{escape_markdown(str(user))}  {is_bot}")
-        embed.set_thumbnail(url=user.display_avatar.url)
-        embed.add_field(name="Created Account", value=created)
-        embed.set_footer(text="Server dates change if user left")
+            if user.avatar:
+                files.append(await user.avatar.to_file())
+            if isinstance(user, discord.Member) and user.guild_avatar:
+                files.append(await user.guild_avatar.to_file())
+            if user_object_with_banner.banner:
+                files.append(await user_object_with_banner.banner.to_file())
+            # TODO: add guild_banner on discord.py 2.5
+        elif guild:
+            guild = self.bot.get_guild(int(guild))
 
-        if itx.channel.type == discord.ChannelType.private:
-            if itx.user in (self.bot.owner, user):
-                members = [g.get_member(user.id) for g in self.bot.guilds]
-                joined = []
-                for member in filter(None, members):
-                    joined.append(
-                        f"{format_dt(member.joined_at, style='R')} "
-                        f"{escape_markdown(member.guild.name)}")
+            if not guild:
+                await itx.followup.send("the guild you typed wasn't found")
+                return
 
-                embed.add_field(
-                    name="Joined Server",
-                    value="\n".join(joined) or "Not in any")
+            if guild.icon:
+                files.append(await guild.icon.to_file())
+            if guild.banner:
+                files.append(await guild.banner.to_file())
+            if guild.splash:
+                files.append(await guild.splash.to_file())
 
-        elif isinstance(user, discord.Member):
-            embed.color = user.color.value or None
-            embed.add_field(
-                name="Joined Server",
-                value=format_dt(user.joined_at, style="R"))
-        else:
-            embed.add_field(name="Joined Server", value="Isn't a member")
+        if not files:
+            await itx.followup.send("no images found")
+            return
 
-        await itx.response.send_message(embed=embed, ephemeral=private)
+        await itx.followup.send(files=files, ephemeral=private)
 
-    @info.autocomplete("guild")
+    @images.autocomplete("guild")
     async def info_guild_autocomplete(self, itx: Interaction, current: str):
         guilds = []
 
@@ -117,8 +78,8 @@ class CommandsGeneral(commands.Cog):
                 itx.user == self.bot.owner or guild.get_member(itx.user.id))
 
             if can_see_guild and current.lower() in guild.name.lower():
-                guilds.append(app_commands.Choice(
-                    name=guild.name, value=guild.name))
+                guilds.append(
+                    app_commands.Choice(name=guild.name, value=str(guild.id)))
 
         guilds.sort(key=lambda i: i.name.lower())
         return guilds
