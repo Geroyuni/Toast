@@ -1,11 +1,7 @@
 from contextlib import suppress
-from datetime import datetime
 import traceback
-import difflib
 import time
-import re
 
-from discord.utils import format_dt, escape_markdown
 from discord.app_commands import AppCommandError
 from discord import app_commands, Interaction
 from colorama import Style, Fore
@@ -24,14 +20,6 @@ class Logging(commands.Cog):
         self.bot = bot
         self.bot.print = self.print
         self.bot.tree.on_error = self.on_app_command_error
-
-    def log(self, guild_id: int, event: str):
-        """Add the given action to a list for guilds to see with /log."""
-        if not self.bot.db["logs"].get(guild_id):
-            self.bot.db["logs"][guild_id] = []
-
-        self.bot.db["logs"][guild_id].append(event)
-        del self.bot.db["logs"][guild_id][:-30]
 
     @staticmethod
     def print(primary, secondary="", *, color="GRAY"):
@@ -60,10 +48,6 @@ class Logging(commands.Cog):
 
         print(current_time + text)
 
-    @property
-    def current_time(self):
-        """Give time formatted for use in Discord."""
-        return format_dt(datetime.now(), style="R")
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -77,85 +61,6 @@ class Logging(commands.Cog):
         location = f"{itx.guild.name}/#{itx.channel}" if itx.guild else "DM"
         self.print(f"{itx.user.name} ({location}):", itx.command.name)
 
-    @commands.Cog.listener()
-    async def on_member_join(self, member):
-        self.log(member.guild.id,
-            f"{member.mention} joined this server {self.current_time}")
-
-    @commands.Cog.listener()
-    async def on_member_remove(self, member):
-        self.log(member.guild.id,
-            f"{member.mention} left this server {self.current_time}")
-
-    @commands.Cog.listener()
-    async def on_message_edit(self, before, after):
-        if before.clean_content == after.clean_content or \
-           after.author.bot or not after.guild:
-            return
-
-        cbefore = self.bot.cut(escape_markdown(before.clean_content), 2000)
-        cafter = self.bot.cut(escape_markdown(after.clean_content), 2000)
-
-        # Separate into words and special characters to compare that
-        # e.g. "test123" "," " " "lol" "!"
-        separate_before = re.findall(r"[^\w\d]|[\w\d]*", cbefore)
-        separate_after = re.findall(r"[^\w\d]|[\w\d]*", cafter)
-
-        previous_sign = " "
-        comparison = []
-        formatting = {"+": "**`", "-": "~~`", " ": ""}
-
-        # Differ starts with symbols representing add/remove
-        # Make text bold for adds, strikethrough for removes, else normal
-        for item in difflib.Differ().compare(separate_before, separate_after):
-            sign, content = item[0], item[2:]
-
-            if sign == "?":
-                continue
-            if sign != previous_sign:
-                comparison.append(formatting[previous_sign][::-1])
-                comparison.append(formatting[sign])
-
-            comparison.append(content)
-            previous_sign = sign
-
-        comparison.append(formatting[previous_sign])
-
-        self.log(after.guild.id,
-            f"{after.author.mention} edited in {after.channel.mention} "
-            f"{self.current_time}:\n{''.join(comparison)}")
-
-    @commands.Cog.listener("on_message_delete")
-    @commands.Cog.listener("on_bulk_message_delete")
-    async def handle_delete(self, messages):
-        if isinstance(messages, list):
-            self.log(messages[0].guild.id,
-                f"Bulk message deletion {self.current_time}; "
-                f"{len(messages)} deleted")
-        else:
-            messages = [messages]
-
-        for message in messages:
-            if message.author.bot or not message.guild:
-                continue
-
-            content = []
-
-            if message.content:
-                content.append(message.clean_content)
-
-            if message.attachments:
-                content.append(
-                    f"[Attachment]({message.attachments[0].proxy_url})")
-
-            if message.embeds and not (message.content or message.attachments):
-                content.append("[embed]")
-
-            content = "\n".join(content)
-
-            self.log(message.guild.id,
-                f"{message.author.mention} deleted in "
-                f"{message.channel.mention} {self.current_time}:\n{content}")
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx, e):

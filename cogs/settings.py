@@ -253,9 +253,6 @@ class CommandsSettings(commands.Cog):
             #     await guild.leave()
             #     continue
 
-            if guild.id not in self.bot.db["logs"]:
-                self.bot.db["logs"][guild.id] = []
-
             if guild.id not in self.bot.db["settings"]:
                 setting = self.default_settings.copy()
                 self.bot.db["settings"][guild.id] = setting
@@ -274,13 +271,11 @@ class CommandsSettings(commands.Cog):
         #     return
 
         self.bot.db["settings"][guild.id] = self.default_settings.copy()
-        self.bot.db["logs"][guild.id] = []
 
     @commands.Cog.listener()
     async def on_guild_leave(self, guild):
         """Remove guild data if the bot is removed from it."""
         self.bot.db["settings"].pop(guild.id)
-        self.bot.db["logs"].pop(guild.id)
 
 
 async def setup(bot):

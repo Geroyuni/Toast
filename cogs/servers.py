@@ -10,27 +10,6 @@ class CommandsServers(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @staticmethod
-    async def summon_log(itx: Interaction, guild_id: int):
-        if not itx.client.db["logs"].get(guild_id):
-            await itx.response.send_message("nothing here yet", ephemeral=True)
-            return
-
-        events = (
-            "Edited messages are formatted as: ~~`removed content`~~ and "
-            "**`added content`**. Keep in mind deleted messages can be "
-            "deleted by anyone with permission. Cross check with the "
-            "Discord audit log where needed.\n\n")
-
-        for event in reversed(itx.client.db["logs"][guild_id]):
-            event = "> " + event.replace("\n", "\n> ")
-
-            if len(events + event) < 4096:
-                events += f"{event}\n\n"
-
-        embed = discord.Embed(title="Log", description=events)
-        await itx.response.send_message(embed=embed, ephemeral=True)
-
     @app_commands.guild_only()
     @app_commands.command()
     @app_commands.rename(input_value="hex_value")
@@ -158,14 +137,6 @@ class CommandsServers(commands.Cog):
                     name=f"{r.name}{have}", value=str(r.id)))
 
         return choices
-
-    @app_commands.default_permissions(manage_guild=True)
-    @app_commands.guild_only()
-    @app_commands.command()
-    async def log(self, itx: Interaction):
-        """Show moderation logs not available on Discord's audit log, like
-        message edit/deletes or joins."""
-        await self.summon_log(itx, itx.guild_id)
 
 async def setup(bot):
     await bot.add_cog(CommandsServers(bot))

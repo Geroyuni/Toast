@@ -161,7 +161,6 @@ class CommandsOwner(commands.Cog):
         sync: str = None,
         shutdown: bool = False,
         settings: str = None,
-        log: str = None,
         embed: str = None,
         avatar: discord.Attachment = None,
         invite: bool = False,
@@ -179,8 +178,6 @@ class CommandsOwner(commands.Cog):
             return await self.shutdown(itx)
         if settings:
             return await self.settings(itx, settings)
-        if log:
-            return await self.log(itx, log)
         if embed:
             return await self.embed(itx, embed)
         if avatar:
@@ -239,10 +236,6 @@ class CommandsOwner(commands.Cog):
     async def settings(self, itx: Interaction, guild_id: str):
         """Summon settings for a server the bot is in."""
         await CommandsSettings.summon_settings(itx, int(guild_id))
-
-    async def log(self, itx: Interaction, guild_id: str):
-        """Summon logs for a server the bot is in."""
-        await CommandsServers.summon_log(itx, int(guild_id))
 
     async def embed(self, itx: Interaction, message_url: str):
         message = await self.bot.fetch_message_link(message_url)
