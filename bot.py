@@ -79,19 +79,6 @@ class ToastBot(commands.Bot):
         """Cut a string to based on the string length."""
         return string if len(string) < length else f"{string[:length - 2]}.."
 
-    @staticmethod
-    def readable_number(num):
-        """Format an integer into a human readable string."""
-        num = float("{:.3g}".format(num))
-        magnitude = 0
-
-        while abs(num) >= 1000:
-            magnitude += 1
-            num /= 1000.0
-
-        num = ("%.1f" % num).rstrip("0").rstrip(".")
-        return num + ("", "K", "M", "B", "T")[magnitude]
-
     async def cooldown_check(self, reference_id, seconds):
         """Approve only 1 reference_id every seconds.
 
