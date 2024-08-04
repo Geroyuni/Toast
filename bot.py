@@ -38,7 +38,6 @@ class ToastBot(commands.Bot):
 
     async def setup_hook(self):
         self.owner = (await self.application_info()).owner
-        self.owner_id = self.owner.id
         self.cog_file_names = (
             "embed", "general", "hidden", "logging", "misc",
             "music", "owner", "servers", "settings", "starboard")
@@ -68,7 +67,7 @@ class ToastBot(commands.Bot):
         member = guild.get_member(user.id)
 
         return (
-            user.id == self.owner_id or
+            user == self.owner or
             (member and member.guild_permissions.manage_guild))
 
     @staticmethod
