@@ -61,26 +61,6 @@ class Logging(commands.Cog):
         location = f"{itx.guild.name}/#{itx.channel}" if itx.guild else "DM"
         self.print(f"{itx.user.name} ({location}):", itx.command.name)
 
-
-    @commands.Cog.listener()
-    async def on_command_error(self, ctx, e):
-        """Error handling for non-slash commands."""
-        if hasattr(e, "original"):
-            e = e.original
-
-        if isinstance(e, (commands.CommandNotFound, commands.CheckFailure)):
-            return
-
-        if isinstance(e, (commands.UserInputError, discord.Forbidden)):
-            await ctx.isend(e)
-            return
-
-        await ctx.bot.owner.send(
-            f"{ctx.message.content}\n"
-            f"```py\n{''.join(traceback.format_exception(e))}```")
-
-        raise e
-
     async def on_app_command_error(self, itx: Interaction, e: AppCommandError):
         """Error handling for slash commands."""
         if hasattr(e, "original"):
