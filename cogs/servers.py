@@ -63,7 +63,7 @@ class CommandsServers(commands.Cog):
                 ephemeral=True)
         else:
             await itx.response.send_message(
-                f"removed your color (wanted black? try `/color 1`)",
+                "removed your color (wanted black? try `/color 1`)",
                 ephemeral=True)
 
 

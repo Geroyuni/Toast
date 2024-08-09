@@ -177,7 +177,7 @@ class DynamicVoicechannelSelect(discord.ui.Select):
         setting = view.settings[self.custom_id]
 
         self.add_option(
-            label=f"Use non-category part of the server", value="no_category",
+            label="Use non-category part of the server", value="no_category",
             default="no_category" == setting)
 
         for channel in view.guild.categories[:24]:

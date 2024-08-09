@@ -10,7 +10,6 @@ from discord.ext import commands
 import discord
 
 from cogs.settings import CommandsSettings
-from cogs.servers import CommandsServers
 from cogs.embed import EmbedEditorView
 
 
@@ -310,7 +309,6 @@ class CommandsOwner(commands.Cog):
         return guilds
 
     @owner.autocomplete("settings")
-    @owner.autocomplete("log")
     async def guild_autocomplete(self, itx: Interaction, current: str):
         if itx.user != self.bot.owner:
             return []  # don't leak the bot guild names for no reason

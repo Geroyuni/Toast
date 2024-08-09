@@ -46,7 +46,7 @@ class CommandsHidden(commands.Cog):
         image.save(altered_data, format="png")
         altered_data.seek(0)
 
-        return discord.File(altered_data, filename=f"image.png")
+        return discord.File(altered_data, filename="image.png")
 
     @app_commands.command()
     @app_commands.guilds(898109234091294750)

@@ -1,12 +1,7 @@
-from difflib import get_close_matches
 from contextlib import suppress
 from typing import Union
-from io import BytesIO
 import random
 
-from PIL import Image, ImageColor
-
-from discord.utils import escape_markdown, format_dt
 from discord import app_commands, Interaction
 from discord.ext import commands
 import discord
