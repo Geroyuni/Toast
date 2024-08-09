@@ -48,6 +48,12 @@ class Logging(commands.Cog):
 
         print(current_time + text)
 
+    async def send_error_message(self, itx: Interaction, content):
+        """Send error message in the right way (using followup if needed)."""
+        if itx.response.is_done():
+            await itx.followup.send(content)
+        else:
+            await itx.response.send_message(ephemeral=True, content=content)
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -74,7 +80,7 @@ class Logging(commands.Cog):
         if isinstance(e, app_commands.BotMissingPermissions):
             perms = "`, `".join(e.missing_permissions)
 
-            await itx.response.send_message(ephemeral=True, content=
+            await self.send_error_message(itx,
                 f"I need `{perms}` permissions to run this command properly")
 
             return
@@ -82,22 +88,22 @@ class Logging(commands.Cog):
         if isinstance(e, app_commands.MissingPermissions):
             perms = "`, `".join(e.missing_permissions)
 
-            await itx.response.send_message(ephemeral=True, content=
+            await self.send_error_message(itx,
                 f"you need `{perms}` permissions to run this command")
 
             return
 
         if isinstance(e, app_commands.CheckFailure):
             with suppress(discord.InteractionResponded):
-                await itx.response.send_message(ephemeral=True, content=
+                await self.send_error_message(itx,
                     "you're not allowed to use this")
             return
 
         if isinstance(e, discord.Forbidden):
-            await itx.response.send_message(e, ephemeral=True)
+            await self.send_error_message(itx, e)
             return
 
-        await itx.response.send_message(ephemeral=True, content=
+        await self.send_error_message(itx,
             f"some unexpected error happened: `{e}`")
 
         await self.bot.owner.send(
