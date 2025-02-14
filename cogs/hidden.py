@@ -48,7 +48,7 @@ class CommandsHidden(commands.Cog):
         return discord.File(altered_data, filename="image.png")
 
     @app_commands.command()
-    @app_commands.guilds(898109234091294750)
+    @app_commands.guilds(898109234091294750, 1339797476806492212)
     async def template(
         self, itx: Interaction, playlist_link: str, public: bool = False
     ):
