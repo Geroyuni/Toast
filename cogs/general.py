@@ -65,7 +65,7 @@ class CommandsGeneral(commands.Cog):
         await itx.followup.send(files=files, ephemeral=private)
 
     @images.autocomplete("guild")
-    async def info_guild_autocomplete(self, itx: Interaction, current: str):
+    async def images_guild_autocomplete(self, itx: Interaction, current: str):
         guilds = []
 
         for guild in self.bot.guilds:
