@@ -20,6 +20,9 @@ class CommandsHidden(commands.Cog):
         if not image_link:
             return None
 
+        # Quality bump if it's a YouTube URL
+        image_link = image_link.replace("mqdefault.jpg", "hqdefault.jpg")
+
         async with aiohttp.ClientSession() as session:
             async with session.get(image_link) as resp:
                 if resp.status != 200:
