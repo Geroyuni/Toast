@@ -26,7 +26,9 @@ class ToastBot(commands.Bot):
             "replied_to2": (848654634800381962, "➡️"),
             "attachment": (1010999258280886373, "🖼️")}
 
-        super().__init__(allowed_mentions=allowed_mentions, intents=intents)
+        super().__init__(
+            command_prefix="!", allowed_mentions=allowed_mentions,
+            intents=intents)
         self.remove_command("help")
 
         self.times = {}
