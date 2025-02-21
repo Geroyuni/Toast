@@ -161,7 +161,6 @@ class CommandsOwner(commands.Cog):
         shutdown: bool = False,
         settings: str = None,
         embed: str = None,
-        avatar: discord.Attachment = None,
         invite: bool = False,
         python: str = None,
         recover_starboard_db: bool = False
@@ -179,8 +178,6 @@ class CommandsOwner(commands.Cog):
             return await self.settings(itx, settings)
         if embed:
             return await self.embed(itx, embed)
-        if avatar:
-            return await self.avatar(itx, avatar)
         if invite:
             return await self.invite(itx)
         if python:
@@ -243,11 +240,6 @@ class CommandsOwner(commands.Cog):
 
         await itx.response.send_message(
             embed=message.embeds[0], view=view, ephemeral=True)
-
-    async def avatar(self, itx: Interaction, image: discord.Attachment):
-        """Change the bot's avatar."""
-        await self.bot.user.edit(avatar=await image.read())
-        await itx.response.send_message("changed", ephemeral=True)
 
     async def invite(self, itx: Interaction):
         """Send a link to invite the bot to a server."""
