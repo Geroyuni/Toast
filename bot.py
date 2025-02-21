@@ -128,10 +128,9 @@ class ToastBot(commands.Bot):
         except (discord.NotFound, AttributeError):
             return None
 
+    async def close(self):
+        self.save_db()
+        await super().close()
 
 bot = ToastBot()
-
-try:
-    bot.run(token)
-finally:
-    bot.save_db()
+bot.run(token)

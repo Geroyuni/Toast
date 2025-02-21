@@ -206,7 +206,7 @@ class CommandsOwner(commands.Cog):
 
         if cog == "full":
             await itx.followup.send("(restarting)")
-            self.bot.save_db()
+            await self.bot.close()
             os.execl(sys.executable, sys.executable, *sys.argv)
 
         try:
