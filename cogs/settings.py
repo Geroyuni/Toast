@@ -225,12 +225,12 @@ class CommandsSettings(commands.Cog):
     async def summon_settings(itx: Interaction, guild_id: int):
         await itx.response.send_message(
             "**Bot permissions to take note of**\n"
-            "• Roles and Color commands: Manage roles\n"
-            "• Starboard: Manage messages (all channels; prevents "
+            "- Roles and Color commands: Manage roles\n"
+            "- Starboard: Manage messages (all channels; prevents "
             "self-starring), read/send/attach files (starboard channel)\n"
-            "• Dynamic voice channel: Manage channels and Manage "
+            "- Dynamic voice channel: Manage channels and Manage "
             "permissions (on chosen category)\n"
-            "• Alter command visibility or users that can use commands in "
+            "- Alter command visibility or users that can use commands in "
             "Server settings > Integrations > Toast\n\n"
             "**Modify settings**\n"
             "Select any settings you want to change below. "
