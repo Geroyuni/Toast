@@ -540,7 +540,7 @@ class Skip(discord.ui.Button):
         await self.player.skip()
 
 class Pause(discord.ui.Button):
-    def __init__(self, player):
+    def __init__(self, player: Player):
         if not player.paused:
             label = "Pause"
             emoji = player.bot.toast_emoji("pause")
@@ -579,7 +579,7 @@ class Pause(discord.ui.Button):
         await self.player.update_queue(reset_votes=True)
 
 class More(discord.ui.Button):
-    def __init__(self, player):
+    def __init__(self, player: Player):
         super().__init__(
             label="More",
             emoji=player.bot.toast_emoji("more"),
@@ -600,7 +600,7 @@ class More(discord.ui.Button):
         await itx.response.send_modal(MoreModal(self.player))
 
 class Leave(discord.ui.Button):
-    def __init__(self, player):
+    def __init__(self, player: Player):
         super().__init__(
             label="Leave" + player.format_vote("leave"),
             emoji=player.bot.toast_emoji("leave"))
@@ -635,7 +635,7 @@ class Leave(discord.ui.Button):
         await self.player.disconnect()
 
 class MoreModal(discord.ui.Modal, title="More settings"):
-    def __init__(self, player):
+    def __init__(self, player: Player):
         super().__init__()
         self.player = player
 
@@ -723,7 +723,7 @@ class MoreModal(discord.ui.Modal, title="More settings"):
         await self.player.update_queue()
 
 class QueueButtons(discord.ui.View):
-    def __init__(self, player):
+    def __init__(self, player: Player):
         super().__init__(timeout=None)
 
         self.add_item(Pause(player))
