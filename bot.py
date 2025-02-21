@@ -29,9 +29,8 @@ class ToastBot(commands.Bot):
             messages=True, reactions=True, message_content=True)
 
         super().__init__(
-            command_prefix="!", allowed_mentions=allowed_mentions,
+            command_prefix=[], allowed_mentions=allowed_mentions,
             intents=intents)
-        self.remove_command("help")
 
         self.times = {}
         self.emoji_ids = EMOJI_IDS
@@ -128,9 +127,6 @@ class ToastBot(commands.Bot):
             return await channel.fetch_message(message_id)
         except (discord.NotFound, AttributeError):
             return None
-
-    async def on_message(self, message):
-        pass
 
 
 bot = ToastBot()
