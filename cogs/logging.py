@@ -16,7 +16,7 @@ colorama.init()
 class Logging(commands.Cog):
     """Log guild actions for /log, print bot events, announce errors."""
 
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.bot.print = self.print
         self.bot.tree.on_error = self.on_app_command_error

@@ -12,7 +12,7 @@ import aiohttp
 class CommandsHidden(commands.Cog):
     """These commands are for specific guilds."""
 
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     async def get_artwork(self, image_link):

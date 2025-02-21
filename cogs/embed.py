@@ -349,7 +349,7 @@ class RawEmbedModal(discord.ui.Modal, title="Raw dictionary data"):
 class EmbedEditor(commands.Cog):
     """Allows people to create and edit embeds easily."""
 
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
 
         self.menu = app_commands.ContextMenu(

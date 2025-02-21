@@ -60,7 +60,7 @@ class Player(wavelink.Player):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.bot = self.client
+        self.bot: commands.Bot = self.client
 
         self.votes = {"skip": set(), "pause": set(), "leave": set()}
         self.queue_message = None
@@ -330,7 +330,7 @@ class CancelButton(discord.ui.Button):
 class Music(commands.Cog):
     """Toast's music side and commands, using wavelink."""
 
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     @staticmethod

@@ -7,7 +7,7 @@ import discord
 class CommandsServers(commands.Cog):
     """Commands that need to be used in a guild."""
 
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     @app_commands.guild_only()

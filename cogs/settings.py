@@ -211,7 +211,7 @@ class DynamicVoicechannelTextModal(discord.ui.Modal, title="Settings"):
 class CommandsSettings(commands.Cog):
     """Allow servers to reconfigure parts of Toast."""
 
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.default_settings = {
             "color_command": False,

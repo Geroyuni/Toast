@@ -60,7 +60,7 @@ class PurgeModal(discord.ui.Modal, title="Purge all messages after here"):
 class Miscellaneous(commands.Cog):
     """For all the stuff that doesn't fit in other cogs."""
 
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.auto_db_save.start()
         self.purge_menu = app_commands.ContextMenu(

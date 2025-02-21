@@ -10,7 +10,7 @@ import discord
 class CommandsGeneral(commands.Cog):
     """General commands that can be used by any guild or user."""
 
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     @app_commands.command()

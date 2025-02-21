@@ -26,7 +26,7 @@ class AskView(discord.ui.View):
 
 class EditCodeView(discord.ui.View):
     """View for editing code in Python command."""
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         super().__init__(timeout=None)
         self.code = None
         self.bot = bot
@@ -103,7 +103,7 @@ class CodeModal(discord.ui.Modal, title="Edit code"):
 class CommandsOwner(commands.Cog):
     """All of the owner commands."""
 
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.say_recent_id = None
 
