@@ -8,23 +8,25 @@ import discord
 from token_ import token
 
 
+EMOJI_IDS = {
+    "cooldown": (822620939506286623, "⏰"),
+    "skip": (1016241951814717481, "⏩"),
+    "pause": (1016241949570773112, "⏸️"),
+    "resume": (1016530529744597033, "▶️"),
+    "more": (1236918340849504359, "*️⃣"),
+    "leave": (1016241948304085083, "🚪"),
+    "bot_account": (844063672258134046, "🤖"),
+    "replied_to1": (848652492963446804, "📩"),
+    "replied_to2": (848654634800381962, "➡️"),
+    "attachment": (1010999258280886373, "🖼️")}
+
+
 class ToastBot(commands.Bot):
     def __init__(self):
         allowed_mentions = discord.AllowedMentions.none()
         intents = discord.Intents(
             members=True, emojis=True, guilds=True, voice_states=True,
             messages=True, reactions=True, message_content=True)
-        emoji_ids = {
-            "cooldown": (822620939506286623, "⏰"),
-            "skip": (1016241951814717481, "⏩"),
-            "pause": (1016241949570773112, "⏸️"),
-            "resume": (1016530529744597033, "▶️"),
-            "more": (1236918340849504359, "*️⃣"),
-            "leave": (1016241948304085083, "🚪"),
-            "bot_account": (844063672258134046, "🤖"),
-            "replied_to1": (848652492963446804, "📩"),
-            "replied_to2": (848654634800381962, "➡️"),
-            "attachment": (1010999258280886373, "🖼️")}
 
         super().__init__(
             command_prefix="!", allowed_mentions=allowed_mentions,
@@ -32,7 +34,7 @@ class ToastBot(commands.Bot):
         self.remove_command("help")
 
         self.times = {}
-        self.emoji_ids = emoji_ids
+        self.emoji_ids = EMOJI_IDS
         self.db = self.load_db()
         self.invoke_dict = {}
 

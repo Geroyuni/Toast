@@ -12,7 +12,7 @@ import aiohttp
 class Starboard(commands.Cog):
     """A system that adds messages voted with stars into a channel."""
 
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     @commands.Cog.listener("on_raw_reaction_add")
