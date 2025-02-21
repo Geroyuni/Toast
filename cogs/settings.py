@@ -182,7 +182,7 @@ class DynamicVoicechannelSelect(discord.ui.Select):
 
         for channel in view.guild.categories[:24]:
             self.add_option(
-                label=f"{channel.name}", value=str(channel.id),
+                label=channel.name, value=str(channel.id),
                 default=channel.id == setting)
 
     async def callback(self, itx: Interaction):
