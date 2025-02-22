@@ -1,6 +1,7 @@
-import pickle
-import asyncio
 import datetime
+import asyncio
+import logging
+import pickle
 
 from discord.ext import commands
 import discord
@@ -19,6 +20,15 @@ EMOJI_IDS = {
     "replied_to1": (848652492963446804, "📩"),
     "replied_to2": (848654634800381962, "➡️"),
     "attachment": (1010999258280886373, "🖼️")}
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S")
+
+for l in logging.root.manager.loggerDict:
+    logging.getLogger(l).setLevel(logging.WARNING)
 
 
 class ToastBot(commands.Bot):

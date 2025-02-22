@@ -2,6 +2,7 @@ from contextlib import redirect_stdout, suppress
 from io import StringIO
 import traceback
 import textwrap
+import logging
 import sys
 import os
 
@@ -54,7 +55,7 @@ class EditCodeView(discord.ui.View):
         if len(result) > 4000:
             content = "too long; printing to console"
             embed = None
-            self.bot.print("\n".join(outputs), color="BLUE")
+            logging.info("\n".join(outputs), color="BLUE")
         elif len(result) > 2000:
             content = None
             embed = discord.Embed(description=result, color=0x2b2d31)

@@ -1,52 +1,19 @@
 from contextlib import suppress
 import traceback
-import time
+import logging
 
 from discord.app_commands import AppCommandError
 from discord import app_commands, Interaction
-from colorama import Style, Fore
 from discord.ext import commands
-import colorama
 import discord
-
-colorama.init()
-
 
 
 class Logging(commands.Cog):
-    """Log guild actions for /log, print bot events, announce errors."""
+    """Log bot events, announce errors."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.bot.print = self.print
         self.bot.tree.on_error = self.on_app_command_error
-
-    @staticmethod
-    def print(primary, secondary="", *, color="GRAY"):
-        """Format things to print into console, with color and time."""
-        colors = {
-            "DEFAULT":  Style.RESET_ALL,
-            "WHITE":    Style.BRIGHT + Fore.WHITE,
-            "GRAY":     Style.BRIGHT + Fore.BLACK,
-            "RED":      Style.BRIGHT + Fore.RED,
-            "YELLOW":   Style.BRIGHT + Fore.YELLOW,
-            "BLUE":     Style.BRIGHT + Fore.BLUE}
-
-        primary = str(primary)
-        secondary = str(secondary)
-        current_time = colors[color] + time.strftime("[%H:%M] ")
-
-        if secondary:
-            too_long = len(primary + secondary) + 8 > 130
-            nl = "\n" if (too_long or "\n" in secondary) else " "
-
-            text = (
-                colors["WHITE"] + primary + nl +
-                colors["DEFAULT"] + secondary)
-        else:
-            text = colors["DEFAULT"] + primary
-
-        print(current_time + text)
 
     async def send_error_message(self, itx: Interaction, content):
         """Send error message in the right way (using followup if needed)."""
@@ -57,7 +24,7 @@ class Logging(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        self.print(f"Logged in as {self.bot.user}!", color="BLUE")
+        logging.info(f"Logged in as {self.bot.user}!")
 
     @commands.Cog.listener()
     async def on_interaction(self, itx: Interaction):
@@ -65,7 +32,7 @@ class Logging(commands.Cog):
             return
 
         location = f"{itx.guild.name}/#{itx.channel}" if itx.guild else "DM"
-        self.print(f"{itx.user.name} ({location}):", itx.command.name)
+        logging.info(f"{itx.user} ({location}): {itx.command.name}")
 
     async def on_app_command_error(self, itx: Interaction, e: AppCommandError):
         """Error handling for slash commands."""
@@ -75,7 +42,10 @@ class Logging(commands.Cog):
         else:
             logged = type(e).__name__
 
-        self.print(f"{itx.user}: {itx.command.name} [{logged}]", color="RED")
+        location = f"{itx.guild.name}/#{itx.channel}" if itx.guild else "DM"
+
+        logging.error(
+            f"{itx.user} ({location}): {itx.command.name} [{logged}]")
 
         if isinstance(e, app_commands.BotMissingPermissions):
             perms = "`, `".join(e.missing_permissions)
@@ -107,7 +77,7 @@ class Logging(commands.Cog):
             f"some unexpected error happened: `{e}`")
 
         await self.bot.owner.send(
-            f"{itx.user}: {itx.command.name} [{logged}]\n"
+            f"{itx.user} ({location}): {itx.command.name} [{logged}]\n"
             f"```py\n{''.join(traceback.format_exception(e))}```")
 
         raise e
