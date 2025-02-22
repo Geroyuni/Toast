@@ -7,6 +7,7 @@ from discord import app_commands, Interaction
 from discord.ext import commands, tasks
 import discord
 
+
 class PurgeModal(discord.ui.Modal, title="Purge all messages after here"):
     timestamp = discord.ui.TextInput(
         label="Delete only messages by this author?",
@@ -17,7 +18,7 @@ class PurgeModal(discord.ui.Modal, title="Purge all messages after here"):
         super().__init__()
         self.message = message
 
-    async def purge(self, itx: Interaction, message, only_from_author = False):
+    async def purge(self, itx: Interaction, message, only_from_author=False):
         if only_from_author:
             check = lambda m: m.author == message.author
         else:
@@ -56,6 +57,7 @@ class PurgeModal(discord.ui.Modal, title="Purge all messages after here"):
         data = BytesIO("\n".join(log).encode())
         file = discord.File(data, filename="deleted_messages.txt")
         await itx.followup.send(msg, file=file)
+
 
 class Miscellaneous(commands.Cog):
     """For all the stuff that doesn't fit in other cogs."""

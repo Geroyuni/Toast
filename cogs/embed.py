@@ -6,6 +6,7 @@ from discord import app_commands, Interaction
 from discord.ext import commands
 import discord
 
+
 class EmbedEditorView(discord.ui.View):
     def __init__(self, embed, *, message_to_edit=None, show_sender=True):
         super().__init__(timeout=None)
@@ -15,6 +16,7 @@ class EmbedEditorView(discord.ui.View):
         self.add_item(CancelButton())
 
         self.select = self.children[0]
+
 
 class EmbedSelect(discord.ui.Select):
     def __init__(self, embed):
@@ -65,6 +67,7 @@ class EmbedSelect(discord.ui.Select):
 
         await interaction.response.send_modal(modal)
 
+
 class PostButton(discord.ui.Button):
     def __init__(self, message_to_edit=None, show_sender=True):
         super().__init__(
@@ -77,8 +80,8 @@ class PostButton(discord.ui.Button):
     async def callback(self, itx: discord.Interaction):
         if self.message_to_edit:
             await self.message_to_edit.edit(embed=self.view.select.embed)
-            await itx.response.edit_message(embed=None, view=None, content=
-                "Edited the embed.")
+            await itx.response.edit_message(
+                embed=None, view=None, content="Edited the embed.")
 
             self.view.stop()
             return
@@ -97,6 +100,7 @@ class PostButton(discord.ui.Button):
 
         self.view.stop()
 
+
 class CancelButton(discord.ui.Button):
     def __init__(self):
         super().__init__(label="Cancel")
@@ -108,6 +112,7 @@ class CancelButton(discord.ui.Button):
             view=None)
 
         self.view.stop()
+
 
 class MainEmbedModal(discord.ui.Modal, title="Title, description and color"):
     def __init__(self, select):
@@ -165,6 +170,7 @@ class MainEmbedModal(discord.ui.Modal, title="Title, description and color"):
 
         await self.select.update(itx)
 
+
 class ImagesEmbedModal(discord.ui.Modal, title="Image and thumbnail"):
     def __init__(self, select):
         super().__init__()
@@ -189,6 +195,7 @@ class ImagesEmbedModal(discord.ui.Modal, title="Image and thumbnail"):
         self.select.embed.set_thumbnail(url=thumbnail_url)
 
         await self.select.update(itx)
+
 
 class AuthorEmbedModal(discord.ui.Modal, title="Author"):
     def __init__(self, select):
@@ -220,6 +227,7 @@ class AuthorEmbedModal(discord.ui.Modal, title="Author"):
         self.select.embed.set_author(name=name, url=url, icon_url=icon_url)
         await self.select.update(itx)
 
+
 class FooterEmbedModal(discord.ui.Modal, title="Footer"):
     def __init__(self, select):
         super().__init__()
@@ -245,13 +253,14 @@ class FooterEmbedModal(discord.ui.Modal, title="Footer"):
         self.select.embed.set_footer(text=text, icon_url=icon_url)
         await self.select.update(itx)
 
+
 class FieldEmbedModal(discord.ui.Modal, title="Field"):
     def __init__(self, select, index=None):
         super().__init__()
         self.select = select
         self.index = index
 
-        field = select.embed.fields[index] if index != None else None
+        field = select.embed.fields[index] if index is not None else None
 
         self.add_item(discord.ui.TextInput(
             label="Field name",
@@ -286,12 +295,12 @@ class FieldEmbedModal(discord.ui.Modal, title="Field"):
         name, value, inline, position = [i.value for i in self.children]
 
         if not name and not value:
-            if self.index == None:
+            if self.index is None:
                 await itx.response.defer()
                 return
 
             self.select.embed.remove_field(self.index)
-        elif self.index == None:
+        elif self.index is None:
             if not position:
                 self.select.embed.add_field(
                     name=name,
@@ -320,6 +329,7 @@ class FieldEmbedModal(discord.ui.Modal, title="Field"):
 
         await self.select.update(itx)
 
+
 class RawEmbedModal(discord.ui.Modal, title="Raw dictionary data"):
     def __init__(self, select):
         super().__init__()
@@ -345,6 +355,7 @@ class RawEmbedModal(discord.ui.Modal, title="Raw dictionary data"):
 
         self.select.embed = discord.Embed.from_dict(embed_dict)
         await self.select.update(itx)
+
 
 class EmbedEditor(commands.Cog):
     """Allows people to create and edit embeds easily."""
@@ -373,8 +384,9 @@ class EmbedEditor(commands.Cog):
                 embed = discord.Embed.from_dict(literal_eval(raw_data))
 
             except (ValueError, SyntaxError, AttributeError) as e:
-                await itx.response.send_message(ephemeral=True, content=
-                    f"The given raw_data caused an exception ({e})")
+                await itx.response.send_message(
+                    f"The given raw_data caused an exception ({e})",
+                    ephemeral=True)
                 return
         else:
             embed = discord.Embed(title="Example title")
@@ -412,6 +424,7 @@ class EmbedEditor(commands.Cog):
             show_sender=not can_edit_toast_message)
 
         await itx.response.send_message(embed=embed, view=view, ephemeral=True)
+
 
 async def setup(bot):
     await bot.add_cog(EmbedEditor(bot))

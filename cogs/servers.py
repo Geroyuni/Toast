@@ -4,6 +4,7 @@ from discord import app_commands, Interaction
 from discord.ext import commands
 import discord
 
+
 class CommandsServers(commands.Cog):
     """Commands that need to be used in a guild."""
 
@@ -32,9 +33,10 @@ class CommandsServers(commands.Cog):
             stripped_value = input_value.strip("#").removeprefix("0x")[:6]
             int_value = max(0, min(0xffffff, int(stripped_value, 16)))
         except ValueError:
-            await itx.response.send_message(ephemeral=True, content=
+            await itx.response.send_message(
                 "invalid hex value. If you need a color picker, "
-                "see <https://rgbacolorpicker.com/hex-color-picker>")
+                "see <https://rgbacolorpicker.com/hex-color-picker>",
+                ephemeral=True)
             return
 
         author_colors = []
@@ -66,7 +68,6 @@ class CommandsServers(commands.Cog):
                 "removed your color (wanted black? try `/color 1`)",
                 ephemeral=True)
 
-
         guild_color_roles = []
         for role in itx.guild.roles:
             if role.name.startswith("#") and len(role.name) == 7:
@@ -90,10 +91,11 @@ class CommandsServers(commands.Cog):
         """
         role_ids = self.bot.db["settings"][itx.guild_id]["editable_roles"]
         if not role_ids:
-            await itx.response.send_message(ephemeral=True, content=
+            await itx.response.send_message(
                 "this command isn't enabled in this server. "
                 "Someone with manage server permissions can enable "
-                "it with the settings command")
+                "it with the settings command",
+                ephemeral=True)
 
             return
 
@@ -137,6 +139,7 @@ class CommandsServers(commands.Cog):
                     name=f"{r.name}{have}", value=str(r.id)))
 
         return choices
+
 
 async def setup(bot):
     await bot.add_cog(CommandsServers(bot))

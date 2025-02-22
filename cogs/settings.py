@@ -2,6 +2,7 @@ from discord import Interaction, app_commands
 from discord.ext import commands
 import discord
 
+
 class SettingsView(discord.ui.View):
     def __init__(self, bot, guild_id):
         self.guild = bot.get_guild(guild_id)
@@ -9,6 +10,7 @@ class SettingsView(discord.ui.View):
         super().__init__(timeout=None)
 
         self.add_item(TypeSelect())
+
 
 class TypeSelect(discord.ui.Select):
     def __init__(self):
@@ -74,6 +76,7 @@ class TypeSelect(discord.ui.Select):
 
         await itx.response.edit_message(view=self.view)
 
+
 class ColorCommandSelect(discord.ui.Select):
     def __init__(self, view: discord.ui.View):
         super().__init__(custom_id="color_command")
@@ -133,6 +136,7 @@ class EditableRolesSelect(discord.ui.Select):
         self.view.settings[self.custom_id] = [int(i) for i in self.values]
         await itx.response.defer()
 
+
 class StarboardChannelSelect(discord.ui.Select):
     def __init__(self, view: discord.ui.View):
         super().__init__(
@@ -152,6 +156,7 @@ class StarboardChannelSelect(discord.ui.Select):
         self.view.settings[self.custom_id] = value
         await itx.response.defer()
 
+
 class StarboardStarminSelect(discord.ui.Select):
     def __init__(self, view: discord.ui.View):
         super().__init__(custom_id="starboard_starmin")
@@ -166,6 +171,7 @@ class StarboardStarminSelect(discord.ui.Select):
     async def callback(self, itx: Interaction):
         self.view.settings[self.custom_id] = int(self.values[0])
         await itx.response.defer()
+
 
 class DynamicVoicechannelSelect(discord.ui.Select):
     def __init__(self, view: discord.ui.View):
@@ -191,6 +197,7 @@ class DynamicVoicechannelSelect(discord.ui.Select):
         self.view.settings[self.custom_id] = value
         await itx.response.defer()
 
+
 class DynamicVoicechannelTextModal(discord.ui.Modal, title="Settings"):
     def __init__(self, view: discord.ui.View):
         super().__init__(custom_id="dynamic_voicechannel_text")
@@ -207,6 +214,7 @@ class DynamicVoicechannelTextModal(discord.ui.Modal, title="Settings"):
     async def on_submit(self, itx: Interaction):
         self.view.settings[self.custom_id] = self.children[0].value
         await itx.response.defer()
+
 
 class CommandsSettings(commands.Cog):
     """Allow servers to reconfigure parts of Toast."""

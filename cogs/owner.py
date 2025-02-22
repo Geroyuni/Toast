@@ -244,8 +244,8 @@ class CommandsOwner(commands.Cog):
 
     async def invite(self, itx: Interaction):
         """Send a link to invite the bot to a server."""
-        await itx.response.send_message(ephemeral=True, content=
-            f"<{discord.utils.oauth_url(self.bot.user.id)}>")
+        await itx.response.send_message(
+            f"<{discord.utils.oauth_url(self.bot.user.id)}>", ephemeral=True)
 
     async def python(self, itx: Interaction, code: str):
         """Open up a place to type Python commands."""

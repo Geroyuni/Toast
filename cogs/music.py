@@ -244,12 +244,14 @@ class Player(wavelink.Player):
             hours = int(time.seconds / 3600)
             lasted = f"{hours} hour{'s'[:hours^1]}"
 
+        footer_message = (
+            f"The music session lasted {lasted}, with "
+            f"{self.total_played} song{'s'[:self.total_played^1]} played.")
+
         embed = discord.Embed(
             description=f"Closing the music session {reason}",
             color=0x2b2d31)
-        embed.set_footer(text=
-            f"The music session lasted {lasted}, with "
-            f"{self.total_played} song{'s'[:self.total_played^1]} played.")
+        embed.set_footer(text=footer_message)
 
         await self.channel.send(embed=embed)
 
@@ -265,6 +267,7 @@ class Player(wavelink.Player):
 
         with suppress(AttributeError):
             self.bot.loop.create_task(self.queue_message.delete())
+
 
 class SearchButtons(discord.ui.View):
     def __init__(self, search_results, itx):
@@ -296,6 +299,7 @@ class SearchButtons(discord.ui.View):
 
         return check
 
+
 class NumberButton(discord.ui.Button):
     def __init__(self, number, result):
         super().__init__(label=str(number))
@@ -313,6 +317,7 @@ class NumberButton(discord.ui.Button):
         await itx.guild.voice_client.update_queue()
         await itx.guild.voice_client.do_next()
 
+
 class CancelButton(discord.ui.Button):
     def __init__(self):
         super().__init__(label="Cancel")
@@ -326,6 +331,7 @@ class CancelButton(discord.ui.Button):
         self.view.voice_client.pending_searches.remove(self.view)
         self.view.stop()
         await itx.guild.voice_client.do_next()
+
 
 class Music(commands.Cog):
     """Toast's music side and commands, using wavelink."""
@@ -364,40 +370,31 @@ class Music(commands.Cog):
     async def music_check(itx: Interaction):
         """Check if the command should be allowed."""
         if not isinstance(itx.channel, discord.VoiceChannel):
-            await itx.response.send_message(ephemeral=True, content=
-                "you must use commands in the chat of a voice channel")
+            await itx.response.send_message(
+                "you must use commands in the chat of a voice channel",
+                ephemeral=True)
             return False
 
         voice = itx.user.voice
 
         if itx.guild.voice_client:
             if not voice or itx.channel_id != itx.user.voice.channel.id:
-                await itx.response.send_message(ephemeral=True, content=
-                    "you must join my voice chat")
-                return False
+                error = "you must join my voice chat"
         else:
-            if voice and itx.channel_id != itx.user.voice.channel.id:
-                await itx.response.send_message(ephemeral=True, content=
-                    "use the chat of the voice channel you're "
-                    "in instead of another")
-                return False
-
-            if itx.command.name != "play":
-                await itx.response.send_message(ephemeral=True, content=
-                    "no active session. Use /play")
-                return False
-
             if not voice:
-                await itx.response.send_message(ephemeral=True, content=
-                    "join a voice chat")
-                return False
+                error = "you must be in a voice chat to use the command"
+            elif itx.channel_id != itx.user.voice.channel.id:
+                error = "use the chat of the voice channel you're in",
+            elif itx.command.name != "play":
+                error = "no active session. Use /play"
+            else:
+                perms = itx.user.voice.channel.permissions_for(itx.guild.me)
+                if not (perms.connect and perms.speak):
+                    error = "I can't connect or speak in this voice channel"
 
-            perms = itx.user.voice.channel.permissions_for(itx.guild.me)
-
-            if not (perms.connect and perms.speak):
-                await itx.response.send_message(ephemeral=True, content=
-                    "I can't connect or speak in this voice channel")
-                return False
+        if error:
+            await itx.response.send_message(error, ephemeral=True)
+            return False
 
         return True
 
@@ -490,7 +487,8 @@ class Music(commands.Cog):
 
     @commands.Cog.listener()
     async def on_wavelink_track_end(
-        self, payload: wavelink.TrackEndEventPayload):
+        self, payload: wavelink.TrackEndEventPayload
+    ):
         if not payload.player:
             return
 
@@ -539,6 +537,7 @@ class Skip(discord.ui.Button):
         self.player.info = msg
         await self.player.skip()
 
+
 class Pause(discord.ui.Button):
     def __init__(self, player: Player):
         if not player.paused:
@@ -578,6 +577,7 @@ class Pause(discord.ui.Button):
         await self.player.pause(not self.player.paused)
         await self.player.update_queue(reset_votes=True)
 
+
 class More(discord.ui.Button):
     def __init__(self, player: Player):
         super().__init__(
@@ -593,11 +593,13 @@ class More(discord.ui.Button):
             or self.player.bot.has_permission(itx.user, self.player.guild))
 
         if not can_use:
-            await itx.response.send_message(ephemeral=True, content=
-                "you must be the requester of the song or a server manager")
+            await itx.response.send_message(
+                "you must be the requester of the song or a server manager",
+                ephemeral=True)
             return
 
         await itx.response.send_modal(MoreModal(self.player))
+
 
 class Leave(discord.ui.Button):
     def __init__(self, player: Player):
@@ -633,6 +635,7 @@ class Leave(discord.ui.Button):
 
         await self.player.send_disconnect_log(reason)
         await self.player.disconnect()
+
 
 class MoreModal(discord.ui.Modal, title="More settings"):
     def __init__(self, player: Player):
@@ -722,6 +725,7 @@ class MoreModal(discord.ui.Modal, title="More settings"):
         await asyncio.sleep(0.5)
         await self.player.update_queue()
 
+
 class QueueButtons(discord.ui.View):
     def __init__(self, player: Player):
         super().__init__(timeout=None)
@@ -741,6 +745,7 @@ class QueueButtons(discord.ui.View):
                 "you must be in the voice channel", ephemeral=True)
 
         return check
+
 
 async def setup(bot):
     await bot.add_cog(Music(bot))

@@ -27,8 +27,8 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S")
 
-for l in logging.root.manager.loggerDict:
-    logging.getLogger(l).setLevel(logging.WARNING)
+for logger in logging.root.manager.loggerDict:
+    logging.getLogger(logger).setLevel(logging.WARNING)
 
 
 class ToastBot(commands.Bot):
@@ -141,6 +141,7 @@ class ToastBot(commands.Bot):
     async def close(self):
         self.save_db()
         await super().close()
+
 
 bot = ToastBot()
 bot.run(token)

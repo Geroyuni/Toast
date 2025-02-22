@@ -195,7 +195,7 @@ class Starboard(commands.Cog):
                 values.append(f"**{e.title}**")
 
             if e.description:
-                # Video embeds like YouTube's have a description that is hidden.
+                # Video embeds like YouTube's have a hidden description
                 # fx/vxtwitter put content in author.name because of that
                 if e.type != "video" or e.author.name == e.description:
                     values.append(e.description)
@@ -361,19 +361,21 @@ class Starboard(commands.Cog):
 
         nl = "\n"
 
-        stats_embed = discord.Embed(
-            title=f"{starboard.guild.name}'s starboard",
-            description=
-                f"There are {message_total} starred messages, "
-                f"and a total of {star_total} stars added."
-                f"\n\n**Best messages**\n"
-                f"{nl.join(best_messages) or 'Check next month.'}"
-                f"\n\n**Best authors**\n"
-                f"{nl.join(best_authors) or 'Check next month.'}")
-
-        stats_embed.set_footer(text=
+        description = (
+            f"There are {message_total} starred messages, "
+            f"and a total of {star_total} stars added."
+            f"\n\n**Best messages**\n"
+            f"{nl.join(best_messages) or 'Check next month.'}"
+            f"\n\n**Best authors**\n"
+            f"{nl.join(best_authors) or 'Check next month.'}")
+        footer = (
             "This is updated shortly after the first time "
             "someone stars a post every month.")
+
+        stats_embed = discord.Embed(
+            title=f"{starboard.guild.name}'s starboard",
+            description=description)
+        stats_embed.set_footer(text=footer)
 
         return stats_embed
 
@@ -401,7 +403,6 @@ class Starboard(commands.Cog):
                 await starboard.send("can't pin above msg (pin limit?)")
         else:
             await stat_message.edit(embed=stat_embed)
-
 
 
 async def setup(bot):

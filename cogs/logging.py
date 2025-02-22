@@ -50,7 +50,8 @@ class Logging(commands.Cog):
         if isinstance(e, app_commands.BotMissingPermissions):
             perms = "`, `".join(e.missing_permissions)
 
-            await self.send_error_message(itx,
+            await self.send_error_message(
+                itx,
                 f"I need `{perms}` permissions to run this command properly")
 
             return
@@ -58,8 +59,8 @@ class Logging(commands.Cog):
         if isinstance(e, app_commands.MissingPermissions):
             perms = "`, `".join(e.missing_permissions)
 
-            await self.send_error_message(itx,
-                f"you need `{perms}` permissions to run this command")
+            await self.send_error_message(
+                itx, f"you need `{perms}` permissions to run this command")
 
             return
 
@@ -73,8 +74,8 @@ class Logging(commands.Cog):
             await self.send_error_message(itx, e)
             return
 
-        await self.send_error_message(itx,
-            f"some unexpected error happened: `{e}`")
+        await self.send_error_message(
+            itx, f"some unexpected error happened: `{e}`")
 
         await self.bot.owner.send(
             f"{itx.user} ({location}): {itx.command.name} [{logged}]\n"
