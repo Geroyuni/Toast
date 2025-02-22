@@ -20,7 +20,7 @@ class Logging(commands.Cog):
         if itx.response.is_done():
             await itx.followup.send(content)
         else:
-            await itx.response.send_message(ephemeral=True, content=content)
+            await itx.response.send_message(content, ephemeral=True)
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -65,8 +65,8 @@ class Logging(commands.Cog):
 
         if isinstance(e, app_commands.CheckFailure):
             with suppress(discord.InteractionResponded):
-                await self.send_error_message(itx,
-                    "you're not allowed to use this")
+                await itx.response.send_message(
+                    "you're not allowed to use this", ephemeral=True)
             return
 
         if isinstance(e, discord.Forbidden):
