@@ -91,8 +91,6 @@ class Starboard(commands.Cog):
         files = []
         embed = Embed()
         filesize_limit = message.guild.filesize_limit
-        image_exts = ("png", "jpg", "jpeg", "gif", "webp")
-        video_exts = ("mp4", "mp3", "mov")
 
         async def fetch_file(url, file_type=None):
             """Add a file to the list of uploaded files, return a valid URL"""
@@ -107,7 +105,7 @@ class Starboard(commands.Cog):
                         if data.getbuffer().nbytes >= filesize_limit:
                             return url
 
-                        og_name = urlparse(url).path.split("/")[-1]
+                        og_name = resp.url.path.split("/")[-1]
                         extension = og_name.split(".")[-1]
 
                         if file_type:
@@ -163,27 +161,28 @@ class Starboard(commands.Cog):
 
             desc.append(f"{replied_emojis}{reply}\n")
 
+        for snapshot in message.message_snapshots:
+            if snapshot.content:
+                desc.append(
+                    "> (Forwarded) " + snapshot.content.replace("\n", "\n> "))
+
+            for attachment in snapshot.attachments:
+                desc.append(
+                    f"**[Forwarded {attachment.filename}]({attachment.url})**")
+
+                if attachment.size < filesize_limit:
+                    files.append(await attachment.to_file(
+                        spoiler=attachment.is_spoiler()))
+
         if message.content:
             desc.append(self.bot.cut(message.content, 3000))
 
-        if message.attachments:
-            attached = message.attachments[0]
+        for attachment in message.attachments:
+            desc.append(f"**[{attachment.filename}]({attachment.url})**")
 
-            if urlparse(attached.url.lower()).path.endswith(image_exts):
-                if attached.size < filesize_limit:
-                    ext = attached.filename.split(".")[-1]
-                    embed.set_image(url=f"attachment://toast_image.{ext}")
-
-                    files.append(
-                        await attached.to_file(filename=f"toast_image.{ext}"))
-                else:
-                    embed.set_image(url=attached.url)
-            else:
-                desc.append(f"**[{attached.filename}]({attached.url})**")
-
-                if attached.size < filesize_limit:
-                    files.append(
-                        await attached.to_file(spoiler=attached.is_spoiler()))
+            if attachment.size < filesize_limit:
+                files.append(
+                    await attachment.to_file(spoiler=attachment.is_spoiler()))
 
         if message.embeds:
             e = message.embeds[0]
@@ -208,18 +207,16 @@ class Starboard(commands.Cog):
 
                 embed.add_field(name=f"\n{author}", value="\n".join(values))
 
-            if not e.image and e.thumbnail:
+            if e.video:
+                await fetch_file(e.video.url)
+            elif not e.image and e.thumbnail:
                 embed.set_image(url=await fetch_file(e.thumbnail.url, "image"))
             else:
                 if e.image:
                     embed.set_image(url=await fetch_file(e.image.url, "image"))
-
                 if e.thumbnail:
                     embed.set_image(
                         url=await fetch_file(e.thumbnail.url, "thumbnail"))
-
-            if e.video and urlparse(e.video.url).path.endswith(video_exts):
-                await fetch_file(e.video.url)
 
         if desc:
             embed.description = "\n".join(desc)
