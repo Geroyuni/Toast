@@ -15,7 +15,7 @@ class Logging(commands.Cog):
         self.bot = bot
         self.bot.tree.on_error = self.on_app_command_error
 
-    async def send_error_message(self, itx: Interaction, content):
+    async def send_error(self, itx: Interaction, content):
         """Send error message in the right way (using followup if needed)."""
         if itx.response.is_done():
             await itx.followup.send(content)
@@ -49,34 +49,24 @@ class Logging(commands.Cog):
 
         if isinstance(e, app_commands.BotMissingPermissions):
             perms = "`, `".join(e.missing_permissions)
-
-            await self.send_error_message(
-                itx,
-                f"I need `{perms}` permissions to run this command properly")
-
-            return
+            return await self.send_error(
+                itx, f"I need `{perms}` permissions to run this command")
 
         if isinstance(e, app_commands.MissingPermissions):
             perms = "`, `".join(e.missing_permissions)
-
-            await self.send_error_message(
+            return await self.send_error(
                 itx, f"you need `{perms}` permissions to run this command")
 
-            return
-
         if isinstance(e, app_commands.CheckFailure):
-            with suppress(discord.InteractionResponded):
+            if not itx.response.is_done():
                 await itx.response.send_message(
                     "you're not allowed to use this", ephemeral=True)
             return
 
         if isinstance(e, discord.Forbidden):
-            await self.send_error_message(itx, e)
-            return
+            return await self.send_error(itx, e)
 
-        await self.send_error_message(
-            itx, f"some unexpected error happened: `{e}`")
-
+        await self.send_error(itx, f"some unexpected error happened: `{e}`")
         await self.bot.owner.send(
             f"{itx.user} ({location}): {itx.command.name} [{logged}]\n"
             f"```py\n{''.join(traceback.format_exception(e))}```")
