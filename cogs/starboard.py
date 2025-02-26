@@ -179,7 +179,7 @@ class Starboard(commands.Cog):
                     files.append(await attachment.to_file(
                         spoiler=attachment.is_spoiler()))
 
-            for e in message.embeds:
+            for e in m.embeds:
                 values = []
 
                 if e.title and e.url:
