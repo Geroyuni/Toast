@@ -107,6 +107,7 @@ class Starboard(commands.Cog):
 
                         og_name = resp.url.path.split("/")[-1]
                         extension = og_name.split(".")[-1]
+                        extension = extension.replace("large", "")  # twitter..
 
                         if file_type:
                             filename = f"toast_{file_type}.{extension}"
@@ -161,62 +162,60 @@ class Starboard(commands.Cog):
 
             desc.append(f"{replied_emojis}{reply}\n")
 
-        for snapshot in message.message_snapshots:
-            if snapshot.content:
-                desc.append(
-                    "> (Forwarded) " + snapshot.content.replace("\n", "\n> "))
+        for m in [message] + message.message_snapshots:
+            if m.content:
+                cut_content = self.bot.cut(message.content, 3000)
+                if isinstance(m, discord.MessageSnapshot):
+                    cut_content = cut_content.replace('\n', '\n> ')
+                    desc.append(f"> (Forwarded) {cut_content}")
+                else:
+                    desc.append(cut_content)
 
-            for attachment in snapshot.attachments:
+            for attachment in m.attachments:
                 desc.append(
-                    f"**[Forwarded {attachment.filename}]({attachment.url})**")
+                    f"**[{attachment.filename}]({attachment.url})**")
 
                 if attachment.size < filesize_limit:
                     files.append(await attachment.to_file(
                         spoiler=attachment.is_spoiler()))
 
-        if message.content:
-            desc.append(self.bot.cut(message.content, 3000))
+            for e in message.embeds:
+                values = []
 
-        for attachment in message.attachments:
-            desc.append(f"**[{attachment.filename}]({attachment.url})**")
+                if e.title and e.url:
+                    values.append(f"**[{e.title}]({e.url})**")
+                elif e.title:
+                    values.append(f"**{e.title}**")
 
-            if attachment.size < filesize_limit:
-                files.append(
-                    await attachment.to_file(spoiler=attachment.is_spoiler()))
+                if e.description:
+                    # Video embeds like YouTube's have a hidden description
+                    # fx/vxtwitter put content in author.name because of that
+                    if e.type != "video" or e.author.name == e.description:
+                        values.append(e.description)
 
-        if message.embeds:
-            e = message.embeds[0]
-            values = []
+                if values:
+                    if e.author.name == e.description:
+                        author = "Embed"  # Refer to previous comment
+                    else:
+                        author = e.author.name or "Embed"
 
-            if e.title and e.url:
-                values.append(f"**[{e.title}]({e.url})**")
-            elif e.title:
-                values.append(f"**{e.title}**")
+                    embed.add_field(
+                        name=f"\n{author}",
+                        value="\n".join(values),
+                        inline=False)
 
-            if e.description:
-                # Video embeds like YouTube's have a hidden description
-                # fx/vxtwitter put content in author.name because of that
-                if e.type != "video" or e.author.name == e.description:
-                    values.append(e.description)
-
-            if values:
-                if e.author.name == e.description:
-                    author = "Embed"  # Refer to previous comment
-                else:
-                    author = e.author.name or "Embed"
-
-                embed.add_field(name=f"\n{author}", value="\n".join(values))
-
-            if e.video:
-                await fetch_file(e.video.url)
-            elif not e.image and e.thumbnail:
-                embed.set_image(url=await fetch_file(e.thumbnail.url, "image"))
-            else:
-                if e.image:
-                    embed.set_image(url=await fetch_file(e.image.url, "image"))
-                if e.thumbnail:
+                if e.video and "youtube.com" not in e.video.url:
+                    await fetch_file(e.video.url)
+                elif not e.image and e.thumbnail and not embed.image:
                     embed.set_image(
-                        url=await fetch_file(e.thumbnail.url, "thumbnail"))
+                        url=await fetch_file(e.thumbnail.url, "image"))
+                else:
+                    if e.image and not embed.image:
+                        embed.set_image(
+                            url=await fetch_file(e.image.url, "image"))
+                    if e.thumbnail and not embed.image:
+                        embed.set_image(
+                            url=await fetch_file(e.thumbnail.url, "thumbnail"))
 
         if desc:
             embed.description = "\n".join(desc)
