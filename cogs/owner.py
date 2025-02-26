@@ -55,7 +55,7 @@ class EditCodeView(discord.ui.View):
         if len(result) > 4000:
             content = "too long; printing to console"
             embed = None
-            logging.info("\n".join(outputs), color="BLUE")
+            logging.info("\n".join(outputs))
         elif len(result) > 2000:
             content = None
             embed = discord.Embed(description=result, color=0x2b2d31)
