@@ -164,7 +164,7 @@ class Starboard(commands.Cog):
 
         for m in [message] + message.message_snapshots:
             if m.content:
-                cut_content = self.bot.cut(message.content, 3000)
+                cut_content = self.bot.cut(m.content, 3000)
                 if isinstance(m, discord.MessageSnapshot):
                     cut_content = cut_content.replace('\n', '\n> ')
                     desc.append(f"> (Forwarded) {cut_content}")
