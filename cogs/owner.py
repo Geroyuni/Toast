@@ -16,6 +16,7 @@ from cogs.embed import EmbedEditorView
 
 class AskView(discord.ui.View):
     """Provide a button to shutdown the bot anyway."""
+
     def __init__(self):
         super().__init__(timeout=60)
 
@@ -27,6 +28,7 @@ class AskView(discord.ui.View):
 
 class EditCodeView(discord.ui.View):
     """View for editing code in Python command."""
+
     def __init__(self, bot: commands.Bot):
         super().__init__(timeout=None)
         self.code = None

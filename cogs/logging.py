@@ -1,4 +1,3 @@
-from contextlib import suppress
 import traceback
 import logging
 

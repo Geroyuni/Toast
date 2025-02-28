@@ -286,7 +286,7 @@ class FieldEmbedModal(discord.ui.Modal, title="Field"):
 
         self.add_item(discord.ui.TextInput(
             label="Position (leave unmodified if unsure)",
-            default=index+1 if field else None,
+            default=index + 1 if field else None,
             placeholder="1-25, or empty to add to bottom",
             max_length=2,
             required=False))
@@ -313,7 +313,7 @@ class FieldEmbedModal(discord.ui.Modal, title="Field"):
                     value=value,
                     inline=True if inline.lower() == "true" else False)
         else:
-            if position == self.index-1:
+            if position == self.index - 1:
                 self.select.embed.set_field_at(
                     self.index,
                     name=name,

@@ -78,8 +78,8 @@ class ToastBot(commands.Bot):
         member = guild.get_member(user.id)
 
         return (
-            user == self.owner or
-            (member and member.guild_permissions.manage_guild))
+            user == self.owner
+            or (member and member.guild_permissions.manage_guild))
 
     @staticmethod
     def fmt_command(itx: discord.Interaction):
@@ -128,8 +128,8 @@ class ToastBot(commands.Bot):
 
         try:
             channel = (
-                self.get_channel(channel_id) or
-                await self.fetch_channel(channel_id))
+                self.get_channel(channel_id)
+                or await self.fetch_channel(channel_id))
         except discord.NotFound:
             return None
 
@@ -143,5 +143,6 @@ class ToastBot(commands.Bot):
         await super().close()
 
 
-bot = ToastBot()
-bot.run(token)
+if __name__ == "__main__":
+    bot = ToastBot()
+    bot.run(token)

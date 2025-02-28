@@ -290,8 +290,8 @@ class Starboard(commands.Cog):
         """Get original/starboard based off contents from the opposite msg."""
         msgs = {"original": None, "starboard": None}
         reference_likely_starboard = (
-            reference_msg.author == self.bot.user and
-            reference_msg.channel.id == starboard.id)
+            reference_msg.author == self.bot.user
+            and reference_msg.channel.id == starboard.id)
 
         if reference_likely_starboard:
             with suppress(ValueError, IndexError):
