@@ -375,6 +375,7 @@ class Music(commands.Cog):
                 ephemeral=True)
             return False
 
+        error = None
         voice = itx.user.voice
 
         if itx.guild.voice_client:
