@@ -385,7 +385,7 @@ class Music(commands.Cog):
             if not voice:
                 error = "you must be in a voice chat to use the command"
             elif itx.channel_id != itx.user.voice.channel.id:
-                error = "use the chat of the voice channel you're in",
+                error = "use the chat of the voice channel you're in"
             elif itx.command.name != "play":
                 error = "no active session. Use /play"
             else:
