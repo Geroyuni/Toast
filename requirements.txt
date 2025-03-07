@@ -1,3 +1,4 @@
 discord.py==2.5.2
 pillow==11.1.0
+pyfsig==1.0.0
 wavelink==3.4.1

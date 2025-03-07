@@ -7,6 +7,7 @@ from discord.ext import commands
 from discord import Embed, utils
 import discord
 import aiohttp
+import pyfsig
 
 
 class Starboard(commands.Cog):
@@ -19,6 +20,7 @@ class Starboard(commands.Cog):
     @commands.Cog.listener("on_raw_reaction_remove")
     async def update_starboard(self, src):
         """Update starboard."""
+
         if src.emoji.name != "⭐" or not src.guild_id:
             return
 
@@ -40,9 +42,8 @@ class Starboard(commands.Cog):
         msgs = await self.fetch_both_messages(message, starboard)
 
         if not msgs["original"]:
-            embed = await self.archive_message(msgs["starboard"])
+            await self.archive_message(msgs["starboard"])
             return
-
         if not self.check_permissions(msgs["original"], is_starboard=False):
             return
 
@@ -69,7 +70,7 @@ class Starboard(commands.Cog):
             await msgs["starboard"].delete()
             return
 
-        embed = self.edit_embed(embed, stars, starmin)
+        embed = self.edit_embed_stars(embed, stars, starmin)
         embed = self.edit_embed_attachments(embed)
         await msgs["starboard"].edit(embed=embed)
 
@@ -91,9 +92,11 @@ class Starboard(commands.Cog):
         files = []
         embed = Embed()
         filesize_limit = message.guild.filesize_limit
+        expected_formats = (
+            "png", "jpg", "jpeg", "gif", "webm", "mp3", "mp4", "mov")
 
         async def fetch_file(url, file_type=None):
-            """Add a file to the list of uploaded files, return a valid URL"""
+            """Add a file to the list of uploaded files, return a valid URL."""
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(url) as resp:
@@ -105,14 +108,27 @@ class Starboard(commands.Cog):
                         if data.getbuffer().nbytes >= filesize_limit:
                             return url
 
-                        og_name = resp.url.path.split("/")[-1]
-                        extension = og_name.split(".")[-1]
-                        extension = extension.replace("large", "")  # twitter..
+                        name = resp.url.path.split("/")[-1]
+                        extension = "unknown"
+
+                        if "." in name:
+                            name, extension = name.rsplit(".", 1)
+
+                        if extension.lower() not in expected_formats:
+                            signatures = (
+                                pyfsig.find_matches_for_file_header(
+                                    data.read(32)))
+                            data.seek(0)
+
+                            for sig in signatures:
+                                if sig.file_extension in expected_formats:
+                                    extension = sig.file_extension
+                                    break
 
                         if file_type:
                             filename = f"toast_{file_type}.{extension}"
                         else:
-                            filename = og_name
+                            filename = f"{name}.{extension}"
 
                         file = discord.File(data, filename=filename)
             except aiohttp.ClientConnectorError:
@@ -129,11 +145,16 @@ class Starboard(commands.Cog):
                 icon_url="https://files.catbox.moe/8t9j1y.png",
                 url=f"{message.jump_url}#{message.author.id}")
         else:
-            avatar = message.author.display_avatar.url
+            author = message.author
+
+            if author.display_name.lower() == author.name.lower():
+                author_name = author.display_name
+            else:
+                author_name = f"{author.display_name} ({author.name})"
 
             embed.set_author(
-                name=f"{message.author.display_name} 🔗",
-                icon_url=await fetch_file(avatar, "avatar"),
+                name=f"{author_name} 🔗",
+                icon_url=await fetch_file(author.display_avatar.url, "avatar"),
                 url=f"{message.jump_url}#{message.author.id}")
 
         if message.type == discord.MessageType.reply:
@@ -173,7 +194,7 @@ class Starboard(commands.Cog):
 
             for attachment in m.attachments:
                 desc.append(
-                    f"**[{attachment.filename}]({attachment.url})**")
+                    f"-# [{attachment.filename}]({attachment.url})")
 
                 if attachment.size < filesize_limit:
                     files.append(await attachment.to_file(
@@ -206,28 +227,22 @@ class Starboard(commands.Cog):
 
                 if e.video and "youtube.com" not in e.video.url:
                     await fetch_file(e.video.url)
-                elif not e.image and e.thumbnail and not embed.image:
-                    embed.set_image(
-                        url=await fetch_file(e.thumbnail.url, "image"))
-                else:
-                    if e.image and not embed.image:
-                        embed.set_image(
-                            url=await fetch_file(e.image.url, "image"))
-                    if e.thumbnail and not embed.image:
-                        embed.set_image(
-                            url=await fetch_file(e.thumbnail.url, "thumbnail"))
+                elif e.image:
+                    await fetch_file(e.image.url)
+                elif e.thumbnail:
+                    await fetch_file(e.thumbnail.url)
 
         if desc:
             embed.description = "\n".join(desc)
 
         embed.set_footer(text=f"? ⭐ (#{message.channel})")
 
-        embed = self.edit_embed(embed, stars, starmin)
+        embed = self.edit_embed_stars(embed, stars, starmin)
         starboard_message = await dest.send(embed=embed, files=files)
         self.bot.db["starboard"][message.id] = starboard_message.id
 
-    def edit_embed(self, embed, stars, starmin):
-        """Edit star information."""
+    def edit_embed_stars(self, embed, stars, starmin):
+        """Edit star color and number."""
         colors = None, 0x786938, 0xc8aa4b, 0xffd255, 0xffd255, 0x28d7fa
         calc = int((stars - starmin) / (starmin - 1))
         embed.color = colors[max(0, min(calc, 5))]
