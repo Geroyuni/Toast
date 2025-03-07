@@ -183,16 +183,16 @@ class Starboard(commands.Cog):
 
             desc.append(f"{replied_emojis}{reply}\n")
 
-        for m in [message] + message.message_snapshots:
-            if m.content:
-                cut_content = self.bot.cut(m.content, 3000)
-                if isinstance(m, discord.MessageSnapshot):
+        for s_message in [message] + message.message_snapshots:
+            if s_message.content:
+                cut_content = self.bot.cut(s_message.content, 3000)
+                if isinstance(s_message, discord.MessageSnapshot):
                     cut_content = cut_content.replace('\n', '\n> ')
                     desc.append(f"> (Forwarded) {cut_content}")
                 else:
                     desc.append(cut_content)
 
-            for attachment in m.attachments:
+            for attachment in s_message.attachments:
                 desc.append(
                     f"-# [{attachment.filename}]({attachment.url})")
 
@@ -200,37 +200,42 @@ class Starboard(commands.Cog):
                     files.append(await attachment.to_file(
                         spoiler=attachment.is_spoiler()))
 
-            for e in m.embeds:
+            for s_embed in s_message.embeds:
                 values = []
 
-                if e.title and e.url:
-                    values.append(f"**[{e.title}]({e.url})**")
-                elif e.title:
-                    values.append(f"**{e.title}**")
+                if s_embed.title and s_embed.url:
+                    values.append(f"**[{s_embed.title}]({s_embed.url})**")
+                elif s_embed.title:
+                    values.append(f"**{s_embed.title}**")
 
-                if e.description:
-                    # Video embeds like YouTube's have a hidden description
-                    # fx/vxtwitter put content in author.name because of that
-                    if e.type != "video" or e.author.name == e.description:
-                        values.append(e.description)
+                # Video embeds like YouTube's have a hidden description
+                # fx/vxtwitter put content in author.name because of that
+                should_append_description = (
+                    s_embed.description and (
+                        s_embed.type != "video"
+                        or s_embed.author.name == s_embed.description))
+
+                if should_append_description:
+                    values.append(s_embed.description)
 
                 if values:
-                    if e.author.name == e.description:
+                    if s_embed.author.name == s_embed.description:
                         author = "Embed"  # Refer to previous comment
                     else:
-                        author = e.author.name or "Embed"
+                        author = s_embed.author.name or "Embed"
 
                     embed.add_field(
                         name=f"\n{author}",
                         value="\n".join(values),
                         inline=False)
 
-                if e.video and "youtube.com" not in e.video.url:
-                    await fetch_file(e.video.url)
-                elif e.image:
-                    await fetch_file(e.image.url)
-                elif e.thumbnail:
-                    await fetch_file(e.thumbnail.url)
+                video_url = s_embed.video.url
+                if video_url and "youtube.com" not in video_url:
+                    await fetch_file(video_url)
+                elif s_embed.image.url:
+                    await fetch_file(s_embed.image.url)
+                elif s_embed.thumbnail.url:
+                    await fetch_file(s_embed.thumbnail.url)
 
         if desc:
             embed.description = "\n".join(desc)
