@@ -190,7 +190,7 @@ class Starboard(commands.Cog):
                 return
 
             webhook = await self.fetch_starboard_webhook(starboard)
-            await self.edit_message(starboard_msg, stars, starmin, webhook)
+            await self.edit_message(starboard_msg, stars, webhook)
 
     async def create_message(
         self, message: discord.Message, stars: int, webhook: discord.Webhook
