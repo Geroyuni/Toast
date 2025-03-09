@@ -270,7 +270,7 @@ class Starboard(commands.Cog):
             content.insert(1, "-# _ _")  # small separator
 
         sent_webhook = await webhook.send(
-            content=self.bot.cut("\n".join(filter(None, content)), 1998),
+            content=self.bot.cut("\n".join(content), 1998),
             username=message.author.display_name,
             avatar_url=message.author.display_avatar.url,
             files=files,
