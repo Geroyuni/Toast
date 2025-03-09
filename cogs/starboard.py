@@ -220,6 +220,8 @@ class Starboard(commands.Cog):
                 if attachment.size < filesize_limit:
                     files.append(await attachment.to_file(
                         spoiler=attachment.is_spoiler()))
+                else:
+                    content.append(attachment.url)
 
             for i, embed in enumerate(list(s_message.embeds)):
                 await self.prepare_embed(embed, files, i, filesize_limit)
