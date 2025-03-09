@@ -1,10 +1,8 @@
-from datetime import datetime
-from urllib.parse import urlparse
 from contextlib import suppress
 from io import BytesIO
 
 from discord.ext import commands
-from discord import Embed, utils
+from discord import utils
 import discord
 import aiohttp
 import pyfsig
@@ -16,11 +14,154 @@ class Starboard(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    async def cog_load(self):
+        """Transition from old starboard if applicable (temporary)."""
+        if not self.bot.db.get("old_starboard"):
+            self.bot.db["old_starboard"] = dict(self.bot.db["starboard"])
+            self.bot.db["starboard"] = {}
+
+        for guild_id, settings in self.bot.db["settings"].items():
+            if settings.get("starboard_stat_message_id"):
+                with suppress(AttributeError, discord.NotFound):
+                    message = await self.bot.fetch_message(
+                        settings.get("starboard_channel"),
+                        settings.get("starboard_stat_message_id"))
+                    await message.delete()
+                settings.pop("starboard_stat_message_id")
+
+            settings.pop("starboard_stat_last_edited", None)
+
+    def check_permissions(
+        self, channel: discord.TextChannel, *, starboard: bool
+    ):
+        """Return whether the bot has enough permissions for this channel."""
+        perms = channel.permissions_for(channel.guild.me)
+
+        if starboard:
+            return all((
+                perms.manage_messages, perms.attach_files,
+                perms.read_messages, perms.send_messages,
+                perms.manage_webhooks))
+
+        return all((
+            perms.manage_messages, perms.read_messages, perms.send_messages))
+
+    async def fetch_starboard_webhook(self, starboard: discord.TextChannel):
+        """Fetch existing starboard webhook or make one."""
+        for webhook in await starboard.webhooks():
+            if webhook.name == "toast_starboard_webhook":
+                return webhook
+
+        return await starboard.create_webhook(name="toast_starboard_webhook")
+
+    async def get_reply_content(self, message: discord.Message):
+        if message.type != discord.MessageType.reply:
+            return None
+
+        resolved = message.reference.resolved or await self.bot.fetch_message(
+            message.reference.channel_id, message.reference.message_id)
+
+        if not isinstance(resolved, discord.Message):
+            return (
+                f"{self.bot.toast_emoji('reply')} "
+                f" *Original message was deleted*")
+
+        reply_content = self.bot.cut(
+            f"{self.bot.toast_emoji('reply')} "
+            f"{resolved.author.mention} {resolved.clean_content}", 180)
+
+        if resolved.attachments or resolved.embeds:
+            attachment_emoji = self.bot.toast_emoji('attachment')
+            if not resolved.content:
+                reply_content += f"*Attachment* {attachment_emoji}"
+            else:
+                reply_content += f" {attachment_emoji}"
+
+        return reply_content
+
+    async def prepare_embed(
+        self, embed: discord.Embed, files: list, i: int, filesize_limit: int
+    ):
+        """Preserve every image as is possible and format embed better."""
+        if embed.image.url:
+            embed.set_image(url=await self.fetch_file(
+                embed.image.url, files, filesize_limit, file_type=f"image{i}"))
+
+        if embed.thumbnail.url:
+            embed.set_thumbnail(url=await self.fetch_file(
+                embed.thumbnail.url, files, filesize_limit,
+                file_type=f"thumbnail{i}"))
+
+        if embed.author.icon_url:
+            author_icon_url = await self.fetch_file(
+                embed.author.icon_url, files, filesize_limit,
+                file_type=f"author{i}")
+            embed.set_author(
+                name=embed.author.name,
+                icon_url=author_icon_url,
+                url=embed.author.url)
+
+        if embed.footer.icon_url:
+            footer_icon_url = await self.fetch_file(
+                embed.footer.icon_url, files, filesize_limit,
+                file_type=f"footer{i}")
+            embed.set_footer(text=embed.footer.text, icon_url=footer_icon_url)
+
+        # Some sites work around hidden descriptions by putting it in author
+        if embed.author.name == embed.description:
+            embed.description = ""
+
+    async def fetch_file(
+        self, url: str, files: list, filesize_limit: int, file_type: str = ""
+    ):
+        """Add a file to the list of uploaded files, return URL."""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as resp:
+                    if resp.status != 200:
+                        return url
+
+                    data = BytesIO(await resp.read())
+        except aiohttp.ClientConnectorError:
+            return url
+
+        if data.getbuffer().nbytes >= filesize_limit:
+            return url
+
+        name = resp.url.path.split("/")[-1]
+        extension = "unknown"
+        expected_formats = (
+            "png", "jpg", "jpeg", "gif", "webm", "mp3", "mp4", "mov")
+
+        if "." in name:
+            name, extension = name.rsplit(".", 1)
+
+        if extension.lower() not in expected_formats:
+            signatures = pyfsig.find_matches_for_file_header(data.read(32))
+            data.seek(0)
+
+            for sig in signatures:
+                if sig.file_extension in expected_formats:
+                    extension = sig.file_extension
+                    break
+
+        if extension.lower() == "getblob":  # dumb bluesky stuff
+            extension = "mp4"
+
+        if file_type:
+            filename = f"toast_{file_type}.{extension}"
+        else:
+            filename = f"{name}.{extension}"
+
+        files.append(discord.File(data, filename=filename))
+
+        if file_type:
+            return f"attachment://{filename}"
+
     @commands.Cog.listener("on_raw_reaction_add")
     @commands.Cog.listener("on_raw_reaction_remove")
-    async def update_starboard(self, src):
+    async def update_starboard(self, src: discord.RawReactionActionEvent):
         """Update starboard."""
-
         if src.emoji.name != "⭐" or not src.guild_id:
             return
 
@@ -29,269 +170,126 @@ class Starboard(commands.Cog):
 
         if not starboard:
             return
-        if src.message_id == settings.get("starboard_stat_message_id"):
+        if not self.check_permissions(starboard, starboard=True):
             return
         if not await self.bot.cooldown_check(f"starboard{src.message_id}", 6):
             return
 
         message = await self.bot.fetch_message(src.channel_id, src.message_id)
+        messages = await self.fetch_both_messages(message, starboard)
+        original_msg, starboard_msg = messages.values()
 
-        if not self.check_permissions(message, is_starboard=True):
+        if not original_msg:
+            return
+        if not self.check_permissions(original_msg.channel, starboard=False):
             return
 
-        msgs = await self.fetch_both_messages(message, starboard)
-
-        if not msgs["original"]:
-            await self.archive_message(msgs["starboard"])
-            return
-        if not self.check_permissions(msgs["original"], is_starboard=False):
-            return
-
-        # Update stats message for this starboard if needed
-        self.bot.loop.create_task(
-            self.update_starboard_stats(starboard, settings))
-
-        stars = await self.fetch_stars(msgs)
+        stars = await self.fetch_stars(messages)
         starmin = settings["starboard_starmin"]
 
-        if not msgs["starboard"]:
-            if stars >= starmin:
-                await self.create_message(message, stars, starmin, starboard)
-            return
+        if not starboard_msg:
+            if original_msg.is_system() or stars < starmin:
+                return
 
-        embed = msgs["starboard"].embeds[0]
-        embed_stars = int(embed.footer.text.split()[0])
-
-        if stars == embed_stars:
-            return
-
-        # Beware of stars under minimum on deletion, means minimum was changed
-        if stars < starmin and (embed_stars >= starmin or stars == 0):
-            await msgs["starboard"].delete()
-            return
-
-        embed = self.edit_embed_stars(embed, stars, starmin)
-        embed = self.edit_embed_attachments(embed)
-        await msgs["starboard"].edit(embed=embed)
-
-    def check_permissions(self, message, *, is_starboard):
-        """Return whether the bot has enough permissions for this channel."""
-        perms = message.channel.permissions_for(message.guild.me)
-
-        if is_starboard:
-            return all((
-                perms.manage_messages, perms.attach_files,
-                perms.read_messages, perms.send_messages))
-
-        return all((
-            perms.manage_messages, perms.read_messages, perms.send_messages))
-
-    async def create_message(self, message, stars, starmin, dest):
-        """Create a message in the starboard."""
-        desc = []
-        files = []
-        embed = Embed()
-        filesize_limit = message.guild.filesize_limit
-        expected_formats = (
-            "png", "jpg", "jpeg", "gif", "webm", "mp3", "mp4", "mov")
-
-        async def fetch_file(url, file_type=None):
-            """Add a file to the list of uploaded files, return a valid URL."""
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url) as resp:
-                        if resp.status != 200:
-                            return url
-
-                        data = BytesIO(await resp.read())
-
-                        if data.getbuffer().nbytes >= filesize_limit:
-                            return url
-
-                        name = resp.url.path.split("/")[-1]
-                        extension = "unknown"
-
-                        if "." in name:
-                            name, extension = name.rsplit(".", 1)
-
-                        if extension.lower() not in expected_formats:
-                            signatures = (
-                                pyfsig.find_matches_for_file_header(
-                                    data.read(32)))
-                            data.seek(0)
-
-                            for sig in signatures:
-                                if sig.file_extension in expected_formats:
-                                    extension = sig.file_extension
-                                    break
-
-                        if file_type:
-                            filename = f"toast_{file_type}.{extension}"
-                        else:
-                            filename = f"{name}.{extension}"
-
-                        file = discord.File(data, filename=filename)
-            except aiohttp.ClientConnectorError:
-                return url
-
-            files.append(file)
-
-            if file_type:
-                return f"attachment://{filename}"
-
-        if message.is_system():
-            embed.set_author(
-                name=f"{message.system_content} 🔗",
-                icon_url="https://files.catbox.moe/8t9j1y.png",
-                url=f"{message.jump_url}#{message.author.id}")
+            webhook = await self.fetch_starboard_webhook(starboard)
+            await self.create_message(original_msg, stars, webhook)
         else:
-            author = message.author
+            if starboard_msg.author == self.bot.user:  # old starboard
+                return
 
-            if author.display_name.lower() == author.name.lower():
-                author_name = author.display_name
-            else:
-                author_name = f"{author.display_name} ({author.name})"
+            message_stars = int(starboard_msg.content.split()[1])
 
-            embed.set_author(
-                name=f"{author_name} 🔗",
-                icon_url=await fetch_file(author.display_avatar.url, "avatar"),
-                url=f"{message.jump_url}#{message.author.id}")
+            if stars == message_stars:
+                return
+            # Embed stars being under minimum might mean minimum was changed
+            if stars < starmin and (message_stars >= starmin or stars == 0):
+                await starboard_msg.delete()
+                return
 
-        if message.type == discord.MessageType.reply:
-            reference = message.reference
-            resolved = reference.resolved or await self.bot.fetch_message(
-                reference.channel_id, reference.message_id)
+            webhook = await self.fetch_starboard_webhook(starboard)
+            await self.edit_message(starboard_msg, stars, starmin, webhook)
 
-            if isinstance(resolved, discord.Message):
-                attachment_emoji = self.bot.toast_emoji("attachment")
-                author = utils.escape_markdown(resolved.author.name)
-                content = utils.remove_markdown(resolved.content)
-                content = content.replace("\n", " ")
-                reply = self.bot.cut(f"**{author}** {content}", 160)
+    async def create_message(
+        self, message: discord.Message, stars: int, webhook: discord.Webhook
+    ):
+        """Create a message in the starboard."""
+        content = []
+        files = []
+        embeds = []
+        potential_embeds = []
+        filesize_limit = message.guild.filesize_limit
+        starboard_info = (
+            f"{stars} {self.bot.toast_emoji('star')}", message.author.name,
+            message.jump_url)
 
-                if resolved.attachments or resolved.embeds:
-                    if not content:
-                        reply += f"*Attachment* {attachment_emoji}"
-                    else:
-                        reply += f" {attachment_emoji}"
-            else:
-                reply = "*Original message was deleted*"
-
-            replied_emojis = (
-                str(self.bot.toast_emoji("replied_to1"))
-                + str(self.bot.toast_emoji("replied_to2")))
-
-            desc.append(f"{replied_emojis}{reply}\n")
+        content.append(f"-# {' • '.join(starboard_info)}")
+        content.append(await self.get_reply_content(message))
 
         for s_message in [message] + message.message_snapshots:
+            if isinstance(s_message, discord.MessageSnapshot):
+                content.append(
+                    f"{self.bot.toast_emoji('forward')} *Forwarded*")
+
             if s_message.content:
-                cut_content = self.bot.cut(s_message.content, 3000)
-                if isinstance(s_message, discord.MessageSnapshot):
-                    cut_content = cut_content.replace('\n', '\n> ')
-                    desc.append(f"> (Forwarded) {cut_content}")
-                else:
-                    desc.append(cut_content)
+                content.append(self.bot.cut(s_message.content, 1700))
 
             for attachment in s_message.attachments:
-                desc.append(
-                    f"-# [{attachment.filename}]({attachment.url})")
-
                 if attachment.size < filesize_limit:
                     files.append(await attachment.to_file(
                         spoiler=attachment.is_spoiler()))
 
-            for s_embed in s_message.embeds:
-                values = []
+            for i, embed in enumerate(list(s_message.embeds)):
+                await self.prepare_embed(embed, files, i, filesize_limit)
 
-                if s_embed.title and s_embed.url:
-                    values.append(f"**[{s_embed.title}]({s_embed.url})**")
-                elif s_embed.title:
-                    values.append(f"**{s_embed.title}**")
+                if embed.type == "video" and embed.provider.name == "YouTube":
+                    potential_embeds.append(embed)
+                elif embed.video.url:
+                    fetched = await self.fetch_file(
+                        embed.video.url, files, filesize_limit)
 
-                # Video embeds like YouTube's have a hidden description
-                # fx/vxtwitter put content in author.name because of that
-                should_append_description = (
-                    s_embed.description and (
-                        s_embed.type != "video"
-                        or s_embed.author.name == s_embed.description))
-
-                if should_append_description:
-                    values.append(s_embed.description)
-
-                if values:
-                    if s_embed.author.name == s_embed.description:
-                        author = "Embed"  # Refer to previous comment
+                    if fetched != embed.video.url:
+                        # Ensure embed isn't essentially empty
+                        if embed.title or embed.author.name:
+                            embeds.append(embed)
                     else:
-                        author = s_embed.author.name or "Embed"
+                        potential_embeds.append(embed)
+                else:
+                    embeds.append(embed)
 
-                    embed.add_field(
-                        name=f"\n{author}",
-                        value="\n".join(values),
-                        inline=False)
+        if embeds:
+            embeds.extend(potential_embeds)
+        else:
+            # Remove all files related to potential_embeds
+            for file in list(files):
+                if file.filename.startswith("toast_"):
+                    files.remove(file)
 
-                video_url = s_embed.video.url
-                if video_url and "youtube.com" not in video_url:
-                    await fetch_file(video_url)
-                elif s_embed.image.url:
-                    await fetch_file(s_embed.image.url)
-                elif s_embed.thumbnail.url:
-                    await fetch_file(s_embed.thumbnail.url)
+        content = list(filter(None, content))
 
-        if desc:
-            embed.description = "\n".join(desc)
+        if len(content) > 1:
+            content.insert(1, "-# _ _")  # small separator
 
-        embed.set_footer(text=f"? ⭐ (#{message.channel})")
+        sent_webhook = await webhook.send(
+            content=self.bot.cut("\n".join(filter(None, content)), 1998),
+            username=message.author.display_name,
+            avatar_url=message.author.display_avatar.url,
+            files=files,
+            embeds=embeds or utils.MISSING,
+            wait=True)
 
-        embed = self.edit_embed_stars(embed, stars, starmin)
-        starboard_message = await dest.send(embed=embed, files=files)
-        self.bot.db["starboard"][message.id] = starboard_message.id
+        self.bot.db["starboard"][message.id] = sent_webhook.id
 
-    def edit_embed_stars(self, embed, stars, starmin):
+    async def edit_message(
+        self, message: discord.Message, stars: int, webhook: discord.Webhook
+    ):
         """Edit star color and number."""
-        colors = None, 0x786938, 0xc8aa4b, 0xffd255, 0xffd255, 0x28d7fa
-        calc = int((stars - starmin) / (starmin - 1))
-        embed.color = colors[max(0, min(calc, 5))]
-        embed.set_footer(text=f"{stars} {embed.footer.text.split(' ', 1)[1]}")
+        message = await webhook.fetch_message(message.id)
+        split_content = message.content.split(" • ")
+        split_content[0] = f"-# {stars} {self.bot.toast_emoji('star')}"
 
-        return embed
+        await message.edit(content=" • ".join(split_content))
 
-    def edit_embed_attachments(self, embed):
-        """Ensure the attachments added for the embed stay hidden."""
-        def get_extension(url):
-            og_name = urlparse(url).path.split("/")[-1]
-            return og_name.split(".")[-1].lower()
-
-        if embed.image.url and "toast_image" in embed.image.url:
-            ext = get_extension(embed.image.url)
-            embed.set_image(url=f"attachment://toast_image.{ext}")
-
-        if embed.thumbnail.url and "toast_thumbnail" in embed.thumbnail.url:
-            ext = get_extension(embed.thumbnail.url)
-            embed.set_thumbnail(url=f"attachment://toast_thumbnail.{ext}")
-
-        if embed.author.icon_url and "toast_avatar" in embed.author.icon_url:
-            ext = get_extension(embed.author.icon_url)
-            embed.set_author(
-                name=embed.author.name,
-                icon_url=f"attachment://toast_avatar.{ext}",
-                url=embed.author.url)
-
-        return embed
-
-    async def archive_message(self, message):
-        """Edit starboard message to show it's archived."""
-        embed = message.embeds[0]
-
-        if not embed.author.name.endswith("🔒"):
-            embed.set_author(
-                name=embed.author.name[:-1] + "🔒",
-                icon_url=embed.author.icon_url,
-                url=embed.author.url)
-
-            embed = self.edit_embed_attachments(embed)
-            await message.edit(embed=embed)
-
-    async def fetch_stars(self, msgs):
+    async def fetch_stars(self, msgs: list):
         """Return star count from both messages with author removed."""
         reactions = set()
 
@@ -306,119 +304,42 @@ class Starboard(commands.Cog):
 
         return len(reactions)
 
-    async def fetch_both_messages(self, reference_msg, starboard):
+    async def fetch_both_messages(
+        self, reference_msg: discord.Message, starboard: discord.TextChannel
+    ):
         """Get original/starboard based off contents from the opposite msg."""
         msgs = {"original": None, "starboard": None}
-        reference_likely_starboard = (
+        reference_likely_old_starboard = (
             reference_msg.author == self.bot.user
             and reference_msg.channel.id == starboard.id)
+        reference_likely_starboard = (
+            reference_msg.webhook_id
+            and reference_msg.channel.id == starboard.id)
 
-        if reference_likely_starboard:
+        if reference_likely_old_starboard:
             with suppress(ValueError, IndexError):
                 og_link = reference_msg.embeds[0].author.url
 
                 msgs["starboard"] = reference_msg
                 msgs["original"] = await self.bot.fetch_message_link(og_link)
 
+        if reference_likely_starboard:
+            with suppress(ValueError, IndexError):
+                og_link = reference_msg.content.split()[5]
+
+                msgs["starboard"] = reference_msg
+                msgs["original"] = await self.bot.fetch_message_link(og_link)
+
         if not msgs["starboard"]:
-            msg_id = self.bot.db["starboard"].get(reference_msg.id)
+            msg_id = (
+                self.bot.db["starboard"].get(reference_msg.id)
+                or self.bot.db["old_starboard"].get(reference_msg.id))
 
             msgs["original"] = reference_msg
             msgs["starboard"] = await self.bot.fetch_message(
                 starboard.id, msg_id)
 
         return msgs
-
-    async def fetch_starboard_stats(self, starboard: discord.TextChannel):
-        """Return an embed based on the messages in this starboard."""
-        messages = {}
-        authors = {}
-        message_total = 0
-        star_total = 0
-
-        async for m in starboard.history(limit=None, oldest_first=True):
-            if m.author != self.bot.user or not m.embeds:
-                continue
-
-            with suppress(IndexError, ValueError, AttributeError):
-                embed = m.embeds[0]
-
-                author_id = int(embed.author.url.split("#")[1])
-                stars = int(embed.footer.text.split(" ")[0])
-
-                if not authors.get(author_id):
-                    authors[author_id] = 0
-
-                authors[author_id] += stars
-                messages[m] = stars
-                star_total += stars
-                message_total += 1
-
-        sort = lambda items: items[1]
-        messages_sorted = sorted(messages.items(), key=sort, reverse=True)[:20]
-        authors_sorted = sorted(authors.items(), key=sort, reverse=True)[:10]
-        best_messages = []
-        best_authors = []
-
-        if messages_sorted:
-            author_ljust = len(str(authors_sorted[0][1]))
-            msg_ljust = len(str(messages_sorted[0][1]))
-
-            for author_id, stars in authors_sorted:
-                best_authors.append(
-                    f"`{str(stars).ljust(author_ljust)} ⭐` <@{author_id}>")
-
-            for m, stars in messages_sorted:
-                author_id = int(m.embeds[0].author.url.split("#")[1])
-
-                best_messages.append(
-                    f"`{str(stars).ljust(msg_ljust)} ⭐` "
-                    f"[Link]({m.jump_url}) - By <@{author_id}>")
-
-        nl = "\n"
-
-        description = (
-            f"There are {message_total} starred messages, "
-            f"and a total of {star_total} stars added."
-            f"\n\n**Best messages**\n"
-            f"{nl.join(best_messages) or 'Check next month.'}"
-            f"\n\n**Best authors**\n"
-            f"{nl.join(best_authors) or 'Check next month.'}")
-        footer = (
-            "This is updated shortly after the first time "
-            "someone stars a post every month.")
-
-        stats_embed = discord.Embed(
-            title=f"{starboard.guild.name}'s starboard",
-            description=description)
-        stats_embed.set_footer(text=footer)
-
-        return stats_embed
-
-    async def update_starboard_stats(self, starboard, settings):
-        """Update the stats message for this starboard if needed."""
-        stat_last_edited = settings.get("starboard_stat_last_edited")
-        current_month_year = datetime.now().strftime("%m/%y")
-
-        if stat_last_edited == current_month_year:
-            return
-
-        settings["starboard_stat_last_edited"] = current_month_year
-
-        msg_id = settings.get("starboard_stat_message_id")
-        stat_embed = await self.fetch_starboard_stats(starboard)
-        stat_message = await self.bot.fetch_message(starboard.id, msg_id)
-
-        if not stat_message:
-            stat_message = await starboard.send(embed=stat_embed)
-            settings["starboard_stat_message_id"] = stat_message.id
-
-            try:
-                await stat_message.pin()
-            except discord.HTTPException:
-                await starboard.send("can't pin above msg (pin limit?)")
-        else:
-            await stat_message.edit(embed=stat_embed)
 
 
 async def setup(bot):
