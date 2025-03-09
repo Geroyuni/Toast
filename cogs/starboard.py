@@ -14,23 +14,6 @@ class Starboard(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    async def cog_load(self):
-        """Transition from old starboard if applicable (temporary)."""
-        if not self.bot.db.get("old_starboard"):
-            self.bot.db["old_starboard"] = dict(self.bot.db["starboard"])
-            self.bot.db["starboard"] = {}
-
-        for guild_id, settings in self.bot.db["settings"].items():
-            if settings.get("starboard_stat_message_id"):
-                with suppress(AttributeError, discord.NotFound):
-                    message = await self.bot.fetch_message(
-                        settings.get("starboard_channel"),
-                        settings.get("starboard_stat_message_id"))
-                    await message.delete()
-                settings.pop("starboard_stat_message_id")
-
-            settings.pop("starboard_stat_last_edited", None)
-
     def check_permissions(
         self, channel: discord.TextChannel, *, starboard: bool
     ):
