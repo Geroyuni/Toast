@@ -1,3 +1,5 @@
+import typing
+
 from discord import Interaction, app_commands
 from discord.ext import commands
 import discord
@@ -229,22 +231,60 @@ class CommandsSettings(commands.Cog):
             "dynamic_voicechannel": None,
             "dynamic_voicechannel_text": "Voice"}
 
-    @staticmethod
-    async def summon_settings(itx: Interaction, guild_id: int):
+    def print_perms(
+        self, permission_name: str,
+        location: typing.Union[discord.Guild, discord.TextChannel, None]
+    ):
+        """Return user friendly text for whether the bot has a permission."""
+
+        if not location:
+            where = "unknown [setting disabled?]"
+            emoji = "❔"
+        elif isinstance(location, discord.Guild):
+            where = "server itself"
+            perms = location.me.guild_permissions
+            emoji = "✅" if getattr(perms, permission_name) else "❌"
+        elif isinstance(location, discord.TextChannel):
+            where = location.mention
+            perms = location.permissions_for(location.guild.me)
+            emoji = "✅" if getattr(perms, permission_name) else "❌"
+
+        return f"`{emoji} {permission_name}` (permission in {where})"
+
+    async def summon_settings(self, itx: Interaction, guild_id: int):
+        guild: discord.Guild = itx.client.get_guild(guild_id)
+        settings = itx.client.db["settings"][guild_id]
+        starboard = guild.get_channel(settings["starboard_channel"])
+        category = None
+
+        if settings["dynamic_voicechannel"]:
+            category = (
+                guild.get_channel(settings["dynamic_voicechannel"]) or guild)
+
+        content = (
+            f"### Bot permissions to take note of\n"
+            f"Change the settings below on your server until everything "
+            f"you need is showing as ✅ (to update, do /settings again).\n"
+            f"- Roles and Color commands:\n"
+            f"  - {self.print_perms('manage_roles', guild)}\n"
+            f"- Starboard (first permission prevents self-starring):\n"
+            f"  - {self.print_perms('manage_messages', guild)}\n"
+            f"  - {self.print_perms('read_messages', starboard)}\n"
+            f"  - {self.print_perms('send_messages', starboard)}\n"
+            f"  - {self.print_perms('attach_files', starboard)}\n"
+            f"  - {self.print_perms('manage_webhooks', starboard)}\n"
+            f"- Dynamic voice channel:\n"
+            f"  - {self.print_perms('manage_channels', category)}\n"
+            f"  - {self.print_perms('manage_permissions', category)}\n"
+            f"- Alter command visibility or users that can use "
+            f"commands in 'Server settings > Integrations > Toast'"
+            f"\n\n"
+            f"### Modify settings\n"
+            f"Select any settings you want to change below. "
+            f"You can dismiss this message when you're done.\n\n")
+
         await itx.response.send_message(
-            "**Bot permissions to take note of**\n"
-            "- Roles and Color commands: Manage roles\n"
-            "- Starboard: Manage messages (all channels; prevents "
-            "self-starring), read/send/attach files (starboard channel)\n"
-            "- Dynamic voice channel: Manage channels and Manage "
-            "permissions (on chosen category)\n"
-            "- Alter command visibility or users that can use commands in "
-            "Server settings > Integrations > Toast\n\n"
-            "**Modify settings**\n"
-            "Select any settings you want to change below. "
-            "You can dismiss this message when you're done.\n\n",
-            view=SettingsView(itx.client, guild_id),
-            ephemeral=True)
+            content, view=SettingsView(itx.client, guild_id), ephemeral=True)
 
     @app_commands.default_permissions(manage_guild=True)
     @app_commands.guild_only()
