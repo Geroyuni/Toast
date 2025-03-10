@@ -673,7 +673,7 @@ class MoreModal(discord.ui.Modal, title="More settings"):
             placeholder="Type anything here to shuffle the queue",
             required=False))
 
-    async def on_submit(self, itx: discord.Interaction):
+    async def on_submit(self, itx: Interaction):
         await itx.response.defer()
 
         position, volume, loop_mode, shuffle = [i.value for i in self.children]

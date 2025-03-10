@@ -41,7 +41,7 @@ class EmbedSelect(discord.ui.Select):
                 value=f"field_{i}",
                 description=field.name))
 
-    async def update(self, itx: discord.Interaction):
+    async def update(self, itx: Interaction):
         self.update_fields()
 
         await itx.response.edit_message(
@@ -77,7 +77,7 @@ class PostButton(discord.ui.Button):
         self.message_to_edit = message_to_edit
         self.show_sender = show_sender
 
-    async def callback(self, itx: discord.Interaction):
+    async def callback(self, itx: Interaction):
         if self.message_to_edit:
             await self.message_to_edit.edit(embed=self.view.select.embed)
             await itx.response.edit_message(
@@ -105,7 +105,7 @@ class CancelButton(discord.ui.Button):
     def __init__(self):
         super().__init__(label="Cancel")
 
-    async def callback(self, itx: discord.Interaction):
+    async def callback(self, itx: Interaction):
         await itx.response.edit_message(
             content="Canceled. You can dismiss the message below",
             embed=None,
