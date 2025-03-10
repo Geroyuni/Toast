@@ -10,7 +10,6 @@ from discord import app_commands, Interaction
 from discord.ext import commands
 import discord
 
-from cogs.settings import CommandsSettings
 from cogs.embed import EmbedEditorView
 
 
@@ -234,7 +233,8 @@ class CommandsOwner(commands.Cog):
 
     async def settings(self, itx: Interaction, guild_id: str):
         """Summon settings for a server the bot is in."""
-        await CommandsSettings.summon_settings(itx, int(guild_id))
+        settings_cog = self.bot.get_cog("CommandsSettings")
+        await settings_cog.summon_settings(itx, int(guild_id))
 
     async def embed(self, itx: Interaction, message_url: str):
         message = await self.bot.fetch_message_link(message_url)
