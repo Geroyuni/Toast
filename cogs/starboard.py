@@ -141,56 +141,57 @@ class Starboard(commands.Cog):
         if file_type:
             return f"attachment://{filename}"
 
-    @commands.Cog.listener("on_raw_reaction_add")
-    @commands.Cog.listener("on_raw_reaction_remove")
-    async def update_starboard(self, src: discord.RawReactionActionEvent):
-        """Update starboard."""
-        if src.emoji.name != "⭐" or not src.guild_id:
-            return
+    async def fetch_stars(self, msgs: list):
+        """Return star count from both messages with author removed."""
+        reactions = set()
 
-        settings = self.bot.db["settings"][src.guild_id]
-        starboard = self.bot.get_channel(settings["starboard_channel"])
+        for message in filter(None, msgs.values()):
+            for reaction in message.reactions:
+                if reaction.emoji == "⭐":
+                    reactions.update([u async for u in reaction.users()])
 
-        if not starboard:
-            return
-        if not self.check_permissions(starboard, starboard=True):
-            return
-        if not await self.bot.cooldown_check(f"starboard{src.message_id}", 6):
-            return
+                    if msgs["original"].author in reactions:
+                        await reaction.remove(msgs["original"].author)
+                        reactions.discard(msgs["original"].author)
 
-        message = await self.bot.fetch_message(src.channel_id, src.message_id)
-        messages = await self.fetch_both_messages(message, starboard)
-        original_msg, starboard_msg = messages.values()
+        return len(reactions)
 
-        if not original_msg:
-            return
-        if not self.check_permissions(original_msg.channel, starboard=False):
-            return
+    async def fetch_both_messages(
+        self, reference_msg: discord.Message, starboard: discord.TextChannel
+    ):
+        """Get original/starboard based off contents from the opposite msg."""
+        msgs = {"original": None, "starboard": None}
+        reference_likely_old_starboard = (
+            reference_msg.author == self.bot.user
+            and reference_msg.channel.id == starboard.id)
+        reference_likely_starboard = (
+            reference_msg.webhook_id
+            and reference_msg.channel.id == starboard.id)
 
-        stars = await self.fetch_stars(messages)
-        starmin = settings["starboard_starmin"]
+        if reference_likely_old_starboard:
+            with suppress(ValueError, IndexError):
+                og_link = reference_msg.embeds[0].author.url
 
-        if not starboard_msg:
-            if original_msg.is_system() or stars < starmin:
-                return
+                msgs["starboard"] = reference_msg
+                msgs["original"] = await self.bot.fetch_message_link(og_link)
 
-            webhook = await self.fetch_starboard_webhook(starboard)
-            await self.create_message(original_msg, stars, webhook)
-        else:
-            if starboard_msg.author == self.bot.user:  # old starboard
-                return
+        if reference_likely_starboard:
+            with suppress(ValueError, IndexError):
+                og_link = reference_msg.content.split()[5]
 
-            message_stars = int(starboard_msg.content.split()[1])
+                msgs["starboard"] = reference_msg
+                msgs["original"] = await self.bot.fetch_message_link(og_link)
 
-            if stars == message_stars:
-                return
-            # Embed stars being under minimum might mean minimum was changed
-            if stars < starmin and (message_stars >= starmin or stars == 0):
-                await starboard_msg.delete()
-                return
+        if not msgs["starboard"]:
+            msg_id = (
+                self.bot.db["starboard"].get(reference_msg.id)
+                or self.bot.db["old_starboard"].get(reference_msg.id))
 
-            webhook = await self.fetch_starboard_webhook(starboard)
-            await self.edit_message(starboard_msg, stars, webhook)
+            msgs["original"] = reference_msg
+            msgs["starboard"] = await self.bot.fetch_message(
+                starboard.id, msg_id)
+
+        return msgs
 
     async def create_message(
         self, message: discord.Message, stars: int, webhook: discord.Webhook
@@ -274,57 +275,56 @@ class Starboard(commands.Cog):
 
         await message.edit(content=" • ".join(split_content))
 
-    async def fetch_stars(self, msgs: list):
-        """Return star count from both messages with author removed."""
-        reactions = set()
+    @commands.Cog.listener("on_raw_reaction_add")
+    @commands.Cog.listener("on_raw_reaction_remove")
+    async def update_starboard(self, src: discord.RawReactionActionEvent):
+        """Update starboard."""
+        if src.emoji.name != "⭐" or not src.guild_id:
+            return
 
-        for message in filter(None, msgs.values()):
-            for reaction in message.reactions:
-                if reaction.emoji == "⭐":
-                    reactions.update([u async for u in reaction.users()])
+        settings = self.bot.db["settings"][src.guild_id]
+        starboard = self.bot.get_channel(settings["starboard_channel"])
 
-                    if msgs["original"].author in reactions:
-                        await reaction.remove(msgs["original"].author)
-                        reactions.discard(msgs["original"].author)
+        if not starboard:
+            return
+        if not self.check_permissions(starboard, starboard=True):
+            return
+        if not await self.bot.cooldown_check(f"starboard{src.message_id}", 6):
+            return
 
-        return len(reactions)
+        message = await self.bot.fetch_message(src.channel_id, src.message_id)
+        messages = await self.fetch_both_messages(message, starboard)
+        original_msg, starboard_msg = messages.values()
 
-    async def fetch_both_messages(
-        self, reference_msg: discord.Message, starboard: discord.TextChannel
-    ):
-        """Get original/starboard based off contents from the opposite msg."""
-        msgs = {"original": None, "starboard": None}
-        reference_likely_old_starboard = (
-            reference_msg.author == self.bot.user
-            and reference_msg.channel.id == starboard.id)
-        reference_likely_starboard = (
-            reference_msg.webhook_id
-            and reference_msg.channel.id == starboard.id)
+        if not original_msg:
+            return
+        if not self.check_permissions(original_msg.channel, starboard=False):
+            return
 
-        if reference_likely_old_starboard:
-            with suppress(ValueError, IndexError):
-                og_link = reference_msg.embeds[0].author.url
+        stars = await self.fetch_stars(messages)
+        starmin = settings["starboard_starmin"]
 
-                msgs["starboard"] = reference_msg
-                msgs["original"] = await self.bot.fetch_message_link(og_link)
+        if not starboard_msg:
+            if original_msg.is_system() or stars < starmin:
+                return
 
-        if reference_likely_starboard:
-            with suppress(ValueError, IndexError):
-                og_link = reference_msg.content.split()[5]
+            webhook = await self.fetch_starboard_webhook(starboard)
+            await self.create_message(original_msg, stars, webhook)
+        else:
+            if starboard_msg.author == self.bot.user:  # old starboard
+                return
 
-                msgs["starboard"] = reference_msg
-                msgs["original"] = await self.bot.fetch_message_link(og_link)
+            message_stars = int(starboard_msg.content.split()[1])
 
-        if not msgs["starboard"]:
-            msg_id = (
-                self.bot.db["starboard"].get(reference_msg.id)
-                or self.bot.db["old_starboard"].get(reference_msg.id))
+            if stars == message_stars:
+                return
+            # Embed stars being under minimum might mean minimum was changed
+            if stars < starmin and (message_stars >= starmin or stars == 0):
+                await starboard_msg.delete()
+                return
 
-            msgs["original"] = reference_msg
-            msgs["starboard"] = await self.bot.fetch_message(
-                starboard.id, msg_id)
-
-        return msgs
+            webhook = await self.fetch_starboard_webhook(starboard)
+            await self.edit_message(starboard_msg, stars, webhook)
 
 
 async def setup(bot):
