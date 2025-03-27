@@ -31,11 +31,12 @@ class Starboard(commands.Cog):
 
     async def fetch_starboard_webhook(self, starboard: discord.TextChannel):
         """Fetch existing starboard webhook or make one."""
+        webhook_name = f"{self.bot.user.name}_starboard_webhook".lower()
         for webhook in await starboard.webhooks():
-            if webhook.name == "toast_starboard_webhook":
+            if webhook.name == webhook_name:
                 return webhook
 
-        return await starboard.create_webhook(name="toast_starboard_webhook")
+        return await starboard.create_webhook(name=webhook_name)
 
     async def get_reply_content(self, message: discord.Message):
         if message.type != discord.MessageType.reply:
@@ -201,12 +202,14 @@ class Starboard(commands.Cog):
         files = []
         embeds = []
         potential_embeds = []
+        suppress_embeds = False
         filesize_limit = message.guild.filesize_limit
         starboard_info = (
             f"{stars} {self.bot.toast_emoji('star')}", message.author.name,
             message.jump_url)
 
         content.append(f"-# {' • '.join(starboard_info)}")
+        content.append("-# _ _")  # small separator
         content.append(await self.get_reply_content(message))
 
         for s_message in [message] + message.message_snapshots:
@@ -237,6 +240,8 @@ class Starboard(commands.Cog):
                         # Ensure embed isn't essentially empty
                         if embed.title or embed.author.name:
                             embeds.append(embed)
+                        else:
+                            suppress_embeds = True
                     else:
                         potential_embeds.append(embed)
                 else:
@@ -252,15 +257,13 @@ class Starboard(commands.Cog):
 
         content = list(filter(None, content))
 
-        if len(content) > 1:
-            content.insert(1, "-# _ _")  # small separator
-
         sent_webhook = await webhook.send(
             content=self.bot.cut("\n".join(content), 1998),
             username=message.author.display_name,
             avatar_url=message.author.display_avatar.url,
             files=files,
-            embeds=embeds or utils.MISSING,
+            embeds=embeds,
+            suppress_embeds=suppress_embeds,
             wait=True)
 
         self.bot.db["starboard"][message.id] = sent_webhook.id
