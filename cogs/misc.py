@@ -63,6 +63,7 @@ class Miscellaneous(commands.Cog):
     """For all the stuff that doesn't fit in other cogs."""
 
     def __init__(self, bot: commands.Bot):
+        self.counter = 0
         self.bot = bot
         self.auto_db_save.start()
         self.purge_menu = app_commands.ContextMenu(
@@ -90,6 +91,13 @@ class Miscellaneous(commands.Cog):
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
         await self.dynamic_voicechannel_update(member.guild)
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if self.counter % 20 == 0:
+            await message.add_reaction("🖕")
+
+        self.counter += 1
 
     async def dynamic_voicechannel_update(self, guild):
         """Update voice channels based on demand."""
