@@ -755,6 +755,6 @@ async def setup(bot):
         wavelink.Pool.get_node()
     except wavelink.InvalidNodeException:
         node = wavelink.Node(
-            uri="http://lavahatry4.techbyte.host:3000",
-            password="NAIGLAVA-dash.techbyte.host")
+            uri="lava.inzeworld.com:3128",
+            password="saher.inzeworld.com")
         await wavelink.Pool.connect(client=bot, nodes=[node])
