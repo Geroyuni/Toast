@@ -47,52 +47,52 @@ class CommandsHidden(commands.Cog):
 
         return discord.File(altered_data, filename="image.png")
 
-    @app_commands.command()
-    @app_commands.guilds(898109234091294750, 1339797476806492212)
-    async def template(
-        self, itx: Interaction, playlist_link: str, public: bool = False
-    ):
-        """Output a template for rating songs, based on a playlist.
+    # @app_commands.command()
+    # @app_commands.guilds(898109234091294750, 1339797476806492212)
+    # async def template(
+    #     self, itx: Interaction, playlist_link: str, public: bool = False
+    # ):
+    #     """Output a template for rating songs, based on a playlist.
 
-        :param playlist_link: The link to the playlist
-        :param public: Show the result publicly (false by default)
-        """
-        await itx.response.defer(ephemeral=not public)
+    #     :param playlist_link: The link to the playlist
+    #     :param public: Show the result publicly (false by default)
+    #     """
+    #     await itx.response.defer(ephemeral=not public)
 
-        try:
-            playlist = await wavelink.Playable.search(playlist_link)
-        except wavelink.LavalinkLoadException:
-            playlist = None
+    #     try:
+    #         playlist = await wavelink.Playable.search(playlist_link)
+    #     except wavelink.LavalinkLoadException:
+    #         playlist = None
 
-        if not playlist:
-            await itx.followup.send(
-                "this isn't a playlist link or I can't access it")
-            return
+    #     if not playlist:
+    #         await itx.followup.send(
+    #             "this isn't a playlist link or I can't access it")
+    #         return
 
-        playlist_name = playlist.name.removeprefix("Album - ")
-        playlist_name_formatted = f"⚪ [{playlist_name}](<{playlist_link}>)"
-        average_track_length = (
-            sum([t.length for t in playlist.tracks]) / len(playlist.tracks))
+    #     playlist_name = playlist.name.removeprefix("Album - ")
+    #     playlist_name_formatted = f"⚪ [{playlist_name}](<{playlist_link}>)"
+    #     average_track_length = (
+    #         sum([t.length for t in playlist.tracks]) / len(playlist.tracks))
 
-        track_names = []
+    #     track_names = []
 
-        for track in playlist.tracks:
-            title = f"⬜ {track.title}"
+    #     for track in playlist.tracks:
+    #         title = f"⬜ {track.title}"
 
-            if track.length <= (average_track_length / 2):
-                title += " 🔹"
+    #         if track.length <= (average_track_length / 2):
+    #             title += " 🔹"
 
-            track_names.append(title)
+    #         track_names.append(title)
 
-        track_names = "\n".join(track_names)
-        full_output = f"{playlist_name_formatted}\n\n{track_names}"
+    #     track_names = "\n".join(track_names)
+    #     full_output = f"{playlist_name_formatted}\n\n{track_names}"
 
-        if len(full_output) >= 1992:
-            full_output = full_output[:1990] + ".."
+    #     if len(full_output) >= 1992:
+    #         full_output = full_output[:1990] + ".."
 
-        await itx.followup.send(
-            f"```{html.unescape(full_output)}```",
-            file=await self.get_artwork(playlist.tracks[0].artwork))
+    #     await itx.followup.send(
+    #         f"```{html.unescape(full_output)}```",
+    #         file=await self.get_artwork(playlist.tracks[0].artwork))
 
 
 async def setup(bot):

@@ -50,7 +50,7 @@ class ToastBot(commands.Bot):
         self.owner = (await self.application_info()).owner
         self.cog_file_names = (
             "embed", "general", "hidden", "logging", "misc",
-            "music", "owner", "servers", "settings", "starboard")
+            "owner", "servers", "settings", "starboard")
 
         for cog in self.cog_file_names:
             await self.load_extension(f"cogs.{cog}")
