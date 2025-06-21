@@ -40,23 +40,23 @@ class PurgeModal(discord.ui.Modal, title="Purge all messages after here"):
         deleted = await self.purge(itx, self.message, only_from_author)
 
         if only_from_author:
-            msg = f"deleted {len(deleted)} messages by {self.message.author}"
+            text = f"deleted {len(deleted)} messages by {self.message.author}"
         else:
-            msg = f"deleted {len(deleted)} messages"
+            text = f"deleted {len(deleted)} messages"
 
         log = []
 
-        for m in deleted:
-            attachments = "\n[attachment]" if m.attachments else ""
-            embeds = "\n[embed]" if m.embeds else ""
+        for message in deleted:
+            attachments = "\n[attachment]" if message.attachments else ""
+            embeds = "\n[embed]" if message.embeds else ""
             log.append(
-                f"[{m.created_at:%H:%M)}] "
-                f"{m.author.display_name} ({m.author.id})\n"
-                f"{m.clean_content}{attachments}{embeds}\n")
+                f"[{message.created_at:%H:%M}] "
+                f"{message.author.display_name} ({message.author.id})\n"
+                f"{message.clean_content}{attachments}{embeds}\n")
 
         data = BytesIO("\n".join(log).encode())
         file = discord.File(data, filename="deleted_messages.txt")
-        await itx.followup.send(msg, file=file)
+        await itx.followup.send(text, file=file)
 
 
 class Miscellaneous(commands.Cog):
