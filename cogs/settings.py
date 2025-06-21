@@ -46,6 +46,11 @@ class TypeSelect(discord.ui.Select):
             value="dynamic_voicechannel_text",
             description=(
                 "Name of the dynamic voice channels that are made."))
+        self.add_option(
+            label="Dynamic voice channel AFK name",
+            value="dynamic_voicechannel_afk",
+            description=(
+                "Name for AFK channel (leave empty if you don't want one)."))
 
     async def callback(self, itx: Interaction):
         setting = self.values[0]
@@ -71,6 +76,10 @@ class TypeSelect(discord.ui.Select):
             item = DynamicVoicechannelSelect(self.view)
         elif setting == "dynamic_voicechannel_text":
             modal = DynamicVoicechannelTextModal(self.view)
+            await itx.response.send_modal(modal)
+            return
+        elif setting == "dynamic_voicechannel_afk":
+            modal = DynamicVoicechannelAfkModal(self.view)
             await itx.response.send_modal(modal)
             return
 
@@ -207,7 +216,7 @@ class DynamicVoicechannelTextModal(discord.ui.Modal, title="Settings"):
         setting = view.settings[self.custom_id]
 
         self.add_item(discord.ui.TextInput(
-            label="Name of the dynamic voice channels",
+            label="Dynamic voice channels' name",
             custom_id="dynamic_voicechannel_text",
             placeholder="Voice",
             required=True,
@@ -215,6 +224,24 @@ class DynamicVoicechannelTextModal(discord.ui.Modal, title="Settings"):
 
     async def on_submit(self, itx: Interaction):
         self.view.settings[self.custom_id] = self.children[0].value
+        await itx.response.defer()
+
+
+class DynamicVoicechannelAfkModal(discord.ui.Modal, title="Settings"):
+    def __init__(self, view: discord.ui.View):
+        super().__init__(custom_id="dynamic_voicechannel_afk")
+        self.view = view
+        setting = view.settings[self.custom_id]
+
+        self.add_item(discord.ui.TextInput(
+            label="AFK voice channel name (empty to disable)",
+            custom_id="dynamic_voicechannel_afk",
+            placeholder="AFK",
+            required=False,
+            default=setting))
+
+    async def on_submit(self, itx: Interaction):
+        self.view.settings[self.custom_id] = self.children[0].value or None
         await itx.response.defer()
 
 
@@ -229,7 +256,8 @@ class CommandsSettings(commands.Cog):
             "starboard_channel": None,
             "starboard_starmin": 2,
             "dynamic_voicechannel": None,
-            "dynamic_voicechannel_text": "Voice"}
+            "dynamic_voicechannel_text": "Voice",
+            "dynamic_voicechannel_afk": None}
 
     def print_perms(
         self, permission_name: str,
@@ -275,7 +303,8 @@ class CommandsSettings(commands.Cog):
             f"  - {self.print_perms('manage_webhooks', starboard)}\n"
             f"- Dynamic voice channel:\n"
             f"  - {self.print_perms('manage_channels', category)}\n"
-            f"  - {self.print_perms('manage_permissions', category)}\n"
+            f"  - {self.print_perms('manage_roles', category)}\n"
+            f"  - {self.print_perms('manage_guild', guild)} - AFK channel\n"
             f"- Alter command visibility or users that can use "
             f"commands in 'Server settings > Integrations > Toast'"
             f"\n\n"

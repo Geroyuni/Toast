@@ -91,15 +91,15 @@ class Miscellaneous(commands.Cog):
     async def on_voice_state_update(self, member, before, after):
         await self.dynamic_voicechannel_update(member.guild)
 
-    async def dynamic_voicechannel_update(self, guild):
+    async def dynamic_voicechannel_update(self, guild: discord.Guild):
         """Update voice channels based on demand."""
         settings = self.bot.db["settings"][guild.id]
         category_id = settings["dynamic_voicechannel"]
         voice_name = settings["dynamic_voicechannel_text"]
+        afk_name = settings["dynamic_voicechannel_afk"]
 
         if not category_id:
             return
-
         if not await self.bot.cooldown_check(f"{guild.id}{category_id}", 6):
             return
 
@@ -117,28 +117,47 @@ class Miscellaneous(commands.Cog):
         # creating own empty list because category.voice_channels is unreliable
         empty = [c for c in channels if not c.members]
 
+        positions = [c.position for c in channels]
+
+        if afk_name:
+            afk_channel = discord.utils.get(channels, name=afk_name)
+
+            if afk_channel:
+                positions.remove(afk_channel.position)
+                if afk_channel in empty:
+                    empty.remove(afk_channel)
+
+        highest_position = max(positions)
+
         # Delete empty channels, leave one remaining
         for channel in empty[1:]:
             channels.remove(channel)
             with suppress(discord.NotFound, discord.Forbidden):
                 await channel.delete(reason="dynamic_voicechannel: removing")
 
+        channels_without_afk = channels.copy()
+
+        if afk_name and afk_channel and afk_channel in channels:
+            channels_without_afk.remove(afk_channel)
+
         # Ensure at least one empty channel exists
         if not empty:
             try:
                 channel = await category.create_voice_channel(
-                    name=f"{voice_name} {len(channels) + 1}",
-                    reason="dynamic_voicechannel: adding new")
+                    name=f"{voice_name} {len(channels_without_afk) + 1}",
+                    reason="dynamic_voicechannel: adding new",
+                    position=highest_position)
             except discord.Forbidden:
                 return
 
             channels.append(channel)
+            channels_without_afk.append(channel)
 
         # Ensure default names are ordered correctly, reset empty channels
-        for i, channel in enumerate(channels):
-            name = voice_name + ("" if i == 0 else f" {i + 1}")
+        for i, channel in enumerate(channels_without_afk):
+            intended_name = voice_name + ("" if i == 0 else f" {i + 1}")
 
-            if channel.name == name:
+            if channel.name == intended_name:
                 continue
 
             split = channel.name.split()
@@ -149,9 +168,22 @@ class Miscellaneous(commands.Cog):
             if is_default_name or not channel.members:
                 with suppress(discord.NotFound, discord.Forbidden):
                     await channel.edit(
-                        name=name,
+                        name=intended_name,
                         user_limit=None if channel.members else 0,
                         reason="dynamic_voicechannel: resetting")
+
+        # Create and delete afk channel as necessary
+        if not afk_name:
+            return
+
+        if not afk_channel and any(c.members for c in channels):
+            channel = await category.create_voice_channel(
+                name=afk_name,
+                reason="dynamic_voicechannel: adding new")
+            await guild.edit(afk_channel=channel)
+
+        if afk_channel and not any(c.members for c in channels):
+            await afk_channel.delete()
 
 
 async def setup(bot):
