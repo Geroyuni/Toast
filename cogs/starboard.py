@@ -115,7 +115,7 @@ class Starboard(commands.Cog):
         name = resp.url.path.split("/")[-1]
         extension = "unknown"
         expected_formats = (
-            "png", "jpg", "jpeg", "gif", "webm", "mp3", "mp4", "mov")
+            "png", "jpg", "jpeg", "webp", "gif", "webm", "mp3", "mp4", "mov")
 
         if "." in name:
             name, extension = name.rsplit(".", 1)
