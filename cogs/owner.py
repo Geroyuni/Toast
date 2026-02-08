@@ -154,6 +154,7 @@ class CommandsOwner(commands.Cog):
     @app_commands.check(is_owner)
     @app_commands.command()
     @app_commands.allowed_installs(guilds=False, users=True)
+    @app_commands.allowed_contexts(guilds=True, private_channels=True)
     async def owner(
         self,
         itx: Interaction,
