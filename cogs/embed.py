@@ -374,7 +374,11 @@ class EmbedEditor(commands.Cog):
 
     @app_commands.command()
     @app_commands.allowed_installs(guilds=True, users=True)
-    @app_commands.allowed_contexts(guilds=True, private_channels=True)
+    @app_commands.allowed_contexts(
+        guilds=True,
+        dms=True,
+        private_channels=True
+    )
     async def embed(self, itx: Interaction, raw_data: str = None):
         """Summon a Discord embed editor. If you have 'Manage messages' perm,
         posting will hide you sent it.

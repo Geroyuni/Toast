@@ -15,7 +15,11 @@ class CommandsGeneral(commands.Cog):
 
     @app_commands.command()
     @app_commands.allowed_installs(guilds=True, users=True)
-    @app_commands.allowed_contexts(guilds=True, private_channels=True)
+    @app_commands.allowed_contexts(
+        guilds=True,
+        dms=True,
+        private_channels=True
+    )
     async def images(
         self,
         itx: Interaction,
@@ -82,7 +86,11 @@ class CommandsGeneral(commands.Cog):
 
     @app_commands.command(name="random")
     @app_commands.allowed_installs(guilds=True, users=True)
-    @app_commands.allowed_contexts(guilds=True, private_channels=True)
+    @app_commands.allowed_contexts(
+        guilds=True,
+        dms=True,
+        private_channels=True
+    )
     async def random_(self, itx: Interaction, things: str):
         """Picks a random option or number.
 
